@@ -10,7 +10,7 @@ on:
 
 env:
   REGISTRY: ghcr.io
-  ORGANIZATION: Australian-Protein-Design-Initiative/containers
+  ORGANIZATION: australian-protein-design-initiative/containers
 
 jobs:
   detect-changes:

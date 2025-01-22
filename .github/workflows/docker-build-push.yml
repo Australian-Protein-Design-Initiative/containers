@@ -1,6 +1,16 @@
 name: Create and publish Docker images
 
 on:
+  workflow_dispatch:
+    inputs:
+      container:
+        description: 'Container to build (e.g., rfdiffusion)'
+        required: false
+        type: string
+      version:
+        description: 'Version/tag to build (e.g., cuda11)'
+        required: false
+        type: string
   push:
     branches:
       - '**'
@@ -20,13 +30,48 @@ jobs:
     steps:
       - uses: actions/checkout@v4
       
+      - name: Get changed files
+        id: changed-files
+        if: github.event_name == 'push'
+        uses: tj-actions/changed-files@v42
+        with:
+          files: dockerfiles/*/*/Dockerfile
+      
       - id: set-matrix
         run: |
-          CONTAINERS=$(find dockerfiles -mindepth 2 -maxdepth 2 -type d | sed 's|dockerfiles/||' | jq -R -s -c 'split("\n")[:-1] | map(split("/") | {container: .[0], version: .[1], path: ("dockerfiles/" + .[0] + "/" + .[1])}) | {include: .}')
+          if [ "${{ github.event_name }}" == "workflow_dispatch" ] && [ -n "${{ inputs.container }}" ]; then
+            # Manual trigger for specific container
+            if [ -n "${{ inputs.version }}" ]; then
+              # Specific version requested
+              if [ -d "dockerfiles/${{ inputs.container }}/${{ inputs.version }}" ]; then
+                CONTAINERS=$(echo -e "dockerfiles/${{ inputs.container }}/${{ inputs.version }}" | sed 's|dockerfiles/||' | jq -R -s -c 'split("\n")[:-1] | map(split("/") | {container: .[0], version: .[1], path: ("dockerfiles/" + .[0] + "/" + .[1])}) | {include: .}')
+              else
+                echo "Error: Specified container/version combination does not exist"
+                exit 1
+              fi
+            else
+              # All versions of specified container
+              CONTAINERS=$(find dockerfiles/${{ inputs.container }} -mindepth 1 -maxdepth 1 -type d | sed 's|dockerfiles/||' | jq -R -s -c 'split("\n")[:-1] | map(split("/") | {container: .[0], version: .[1], path: ("dockerfiles/" + .[0] + "/" + .[1])}) | {include: .}')
+            fi
+          else
+            # Push trigger - use changed files
+            CHANGED_PATHS=""
+            for file in ${{ steps.changed-files.outputs.all_changed_files }}; do
+              CHANGED_PATHS="${CHANGED_PATHS}$(dirname $file)\n"
+            done
+            
+            if [ -z "$CHANGED_PATHS" ]; then
+              echo "matrix={\"include\":[]}" >> $GITHUB_OUTPUT
+              exit 0
+            fi
+            
+            CONTAINERS=$(echo -e "$CHANGED_PATHS" | sed 's|dockerfiles/||' | jq -R -s -c 'split("\n")[:-1] | map(select(length > 0) | split("/") | {container: .[0], version: .[1], path: ("dockerfiles/" + .[0] + "/" + .[1])}) | {include: .}')
+          fi
           echo "matrix=${CONTAINERS}" >> $GITHUB_OUTPUT
 
   build-and-push-image:
     needs: detect-changes
+    if: ${{ fromJson(needs.detect-changes.outputs.matrix).include[0] }}
     runs-on: ubuntu-latest
     permissions:
       contents: read

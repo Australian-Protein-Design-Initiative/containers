@@ -29,7 +29,7 @@ RUN wget -q -P /tmp \
 ENV PATH="/opt/conda/bin:$PATH"
 ENV LD_LIBRARY_PATH="/opt/conda/lib:$LD_LIBRARY_PATH"
 
-# ROSETTACOMMONS_PASSWORD must be provided via a docker secret
+# ROSETTA_PASSWORD must be provided via a docker secret
 ARG ROSETTACOMMONS_USER=Academic_User
 RUN --mount=type=secret,id=rosetta_password \
     ROSETTA_PW=$(cat /run/secrets/rosetta_password) && \

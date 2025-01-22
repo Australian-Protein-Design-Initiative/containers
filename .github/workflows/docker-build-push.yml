@@ -1,0 +1,78 @@
+name: Create and publish Docker images
+
+on:
+  push:
+    branches:
+      - '**'
+    paths:
+      - 'dockerfiles/*/*/Dockerfile'
+      - '.github/workflows/docker-build-push.yml'
+
+env:
+  REGISTRY: ghcr.io
+  ORGANIZATION: Australian-Protein-Design-Initiative/containers
+
+jobs:
+  detect-changes:
+    runs-on: ubuntu-latest
+    outputs:
+      matrix: ${{ steps.set-matrix.outputs.matrix }}
+    steps:
+      - uses: actions/checkout@v4
+      
+      - id: set-matrix
+        run: |
+          CONTAINERS=$(find dockerfiles -mindepth 2 -maxdepth 2 -type d | sed 's|dockerfiles/||' | jq -R -s -c 'split("\n")[:-1] | map(split("/") | {container: .[0], version: .[1], path: ("dockerfiles/" + .[0] + "/" + .[1])}) | {include: .}')
+          echo "matrix=${CONTAINERS}" >> $GITHUB_OUTPUT
+
+  build-and-push-image:
+    needs: detect-changes
+    runs-on: ubuntu-latest
+    permissions:
+      contents: read
+      packages: write
+    strategy:
+      fail-fast: false
+      matrix: ${{fromJson(needs.detect-changes.outputs.matrix)}}
+
+    steps:
+      - name: Checkout repository
+        uses: actions/checkout@v4
+
+      - name: Set up Docker Buildx
+        uses: docker/setup-buildx-action@v3
+
+      - name: Log in to the Container registry
+        uses: docker/login-action@v3
+        with:
+          registry: ${{ env.REGISTRY }}
+          username: ${{ github.actor }}
+          password: ${{ secrets.GITHUB_TOKEN }}
+
+      - name: Get current date
+        id: datestamp
+        run: echo "datestamp=$(date '+%F.%H%M%S')" >> $GITHUB_ENV
+
+      - name: Extract metadata (tags, labels) for Docker
+        id: meta
+        uses: docker/metadata-action@v5
+        with:
+          images: ${{ env.REGISTRY }}/${{ env.ORGANIZATION }}/${{ matrix.container }}
+          labels: |
+            org.opencontainers.image.source=https://github.com/${{ github.repository }}
+
+      - name: Build and push Docker image
+        uses: docker/build-push-action@v5
+        with:
+          push: true
+          cache-from: type=gha
+          cache-to: type=gha,mode=max
+          context: ${{ matrix.path }}
+          tags: |
+            ${{ env.REGISTRY }}/${{ env.ORGANIZATION }}/${{ matrix.container }}:${{ matrix.version }}
+            ${{ env.REGISTRY }}/${{ env.ORGANIZATION }}/${{ matrix.container }}:${{ matrix.version }}-${{ github.run_number }}
+            ${{ env.REGISTRY }}/${{ env.ORGANIZATION }}/${{ matrix.container }}:${{ matrix.version }}-${{ env.datestamp }}
+          labels: ${{ steps.meta.outputs.labels }}
+          file: ${{ matrix.path }}/Dockerfile
+          secrets: |
+            "rosetta_password=${{ secrets.ROSETTA_PASSWORD }}"

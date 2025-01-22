@@ -6,6 +6,9 @@
 
 FROM nvcr.io/nvidia/dgl:24.07-py3
 
+# Using vendor-specific namespace for our custom platform annotation
+LABEL org.australian-protein-design-initiative.image.platforms="linux/arm64,linux/amd64"
+
 RUN apt-get -q update \ 
   && DEBIAN_FRONTEND=noninteractive apt-get install --no-install-recommends -y \
   git \

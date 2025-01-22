@@ -39,33 +39,55 @@ jobs:
       
       - id: set-matrix
         run: |
+          generate_container_info() {
+            local path="$1"
+            local container=$(echo "$path" | cut -d'/' -f2)
+            local version=$(echo "$path" | cut -d'/' -f3)
+            
+            # Default to amd64 only unless specified in Dockerfile
+            local platforms="linux/amd64"
+            if grep -q "^LABEL.*org.australian-protein-design-initiative.image.platforms=" "$path/Dockerfile"; then
+              platforms=$(grep "^LABEL.*org.australian-protein-design-initiative.image.platforms=" "$path/Dockerfile" | sed 's/.*platforms="\(.*\)".*/\1/')
+            fi
+            
+            echo "{\"container\":\"$container\",\"version\":\"$version\",\"path\":\"$path\",\"platforms\":\"$platforms\"}"
+          }
+
           if [ "${{ github.event_name }}" == "workflow_dispatch" ] && [ -n "${{ inputs.container }}" ]; then
             # Manual trigger for specific container
             if [ -n "${{ inputs.version }}" ]; then
               # Specific version requested
               if [ -d "dockerfiles/${{ inputs.container }}/${{ inputs.version }}" ]; then
-                CONTAINERS=$(echo -e "dockerfiles/${{ inputs.container }}/${{ inputs.version }}" | sed 's|dockerfiles/||' | jq -R -s -c 'split("\n")[:-1] | map(split("/") | {container: .[0], version: .[1], path: ("dockerfiles/" + .[0] + "/" + .[1])}) | {include: .}')
+                CONTAINER_INFO=$(generate_container_info "dockerfiles/${{ inputs.container }}/${{ inputs.version }}")
+                CONTAINERS=$(echo "$CONTAINER_INFO" | jq -c '{include: [.]}')
               else
                 echo "Error: Specified container/version combination does not exist"
                 exit 1
               fi
             else
               # All versions of specified container
-              CONTAINERS=$(find dockerfiles/${{ inputs.container }} -mindepth 1 -maxdepth 1 -type d | sed 's|dockerfiles/||' | jq -R -s -c 'split("\n")[:-1] | map(split("/") | {container: .[0], version: .[1], path: ("dockerfiles/" + .[0] + "/" + .[1])}) | {include: .}')
+              CONTAINERS_JSON="[]"
+              while IFS= read -r dir; do
+                CONTAINER_INFO=$(generate_container_info "$dir")
+                CONTAINERS_JSON=$(echo "$CONTAINERS_JSON" | jq --arg info "$CONTAINER_INFO" '. += [($info | fromjson)]')
+              done < <(find dockerfiles/${{ inputs.container }} -mindepth 1 -maxdepth 1 -type d)
+              CONTAINERS=$(echo "{\"include\": $CONTAINERS_JSON}")
             fi
           else
             # Push trigger - use changed files
-            CHANGED_PATHS=""
+            CONTAINERS_JSON="[]"
             for file in ${{ steps.changed-files.outputs.all_changed_files }}; do
-              CHANGED_PATHS="${CHANGED_PATHS}$(dirname $file)\n"
+              dir=$(dirname "$file")
+              CONTAINER_INFO=$(generate_container_info "$dir")
+              CONTAINERS_JSON=$(echo "$CONTAINERS_JSON" | jq --arg info "$CONTAINER_INFO" '. += [($info | fromjson)]')
             done
             
-            if [ -z "$CHANGED_PATHS" ]; then
+            if [ -z "$CONTAINERS_JSON" ] || [ "$CONTAINERS_JSON" == "[]" ]; then
               echo "matrix={\"include\":[]}" >> $GITHUB_OUTPUT
               exit 0
             fi
             
-            CONTAINERS=$(echo -e "$CHANGED_PATHS" | sed 's|dockerfiles/||' | jq -R -s -c 'split("\n")[:-1] | map(select(length > 0) | split("/") | {container: .[0], version: .[1], path: ("dockerfiles/" + .[0] + "/" + .[1])}) | {include: .}')
+            CONTAINERS=$(echo "{\"include\": $CONTAINERS_JSON}")
           fi
           echo "matrix=${CONTAINERS}" >> $GITHUB_OUTPUT
 
@@ -110,6 +132,7 @@ jobs:
         uses: docker/build-push-action@v5
         with:
           push: true
+          platforms: ${{ matrix.platforms }}
           cache-from: type=gha
           cache-to: type=gha,mode=max
           context: ${{ matrix.path }}

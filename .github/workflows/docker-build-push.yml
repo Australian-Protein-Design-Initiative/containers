@@ -11,12 +11,12 @@ on:
         description: 'Version/tag to build (e.g., cuda11)'
         required: false
         type: string
-  push:
-    branches:
-      - '**'
-    paths:
-      - 'dockerfiles/*/*/Dockerfile'
-      - '.github/workflows/docker-build-push.yml'
+  # push:
+  #   branches:
+  #     - '**'
+  #   paths:
+  #     - 'dockerfiles/*/*/Dockerfile'
+  #     - '.github/workflows/docker-build-push.yml'
 
 env:
   REGISTRY: ghcr.io

@@ -37,6 +37,13 @@ build container version *args='':
         secrets_arg="--secret id=rosetta_password,env=ROSETTA_PASSWORD"
     fi
 
+    # Check if we need to push
+    if [[ "$platforms" == *,* && "{{args}}" != *"--push"* ]]; then
+        echo "Error: Multi-platform builds require --push flag"
+        echo "Platforms specified: $platforms"
+        exit 1
+    fi
+
     # Determine if we should push
     push_arg="--load"
     if [[ "{{args}}" == *"--push"* ]]; then

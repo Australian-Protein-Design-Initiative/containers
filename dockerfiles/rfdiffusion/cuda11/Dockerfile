@@ -18,6 +18,7 @@
 #   'contigmap.contigs=[10-40/A163-181/10-40]'
 
 FROM nvcr.io/nvidia/cuda:11.6.2-cudnn8-runtime-ubuntu20.04
+LABEL org.opencontainers.image.source=https://github.com/Australian-Protein-Design-Initiative/containers
 
 RUN apt-get -q update \ 
   && DEBIAN_FRONTEND=noninteractive apt-get install --no-install-recommends -y \

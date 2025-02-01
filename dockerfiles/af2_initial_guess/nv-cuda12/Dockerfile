@@ -1,5 +1,7 @@
 ARG CUDA=12.2.2
 FROM nvidia/cuda:${CUDA}-cudnn8-runtime-ubuntu20.04
+LABEL org.opencontainers.image.source=https://github.com/Australian-Protein-Design-Initiative/containers
+
 # FROM directive resets ARGS, so we specify again (the value is retained if
 # previously set).
 ARG CUDA

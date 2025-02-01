@@ -2,6 +2,7 @@
 
 # Start with a base CUDA image if GPU support is essential
 FROM nvidia/cuda:11.8.0-cudnn8-runtime-ubuntu22.04
+LABEL org.opencontainers.image.source=https://github.com/Australian-Protein-Design-Initiative/containers
 
 # Install essential tools and dependencies in one layer
 RUN apt-get update && apt-get install -y \

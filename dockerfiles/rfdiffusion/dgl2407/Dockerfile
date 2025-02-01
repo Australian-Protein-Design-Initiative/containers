@@ -5,7 +5,7 @@
 #  -f Dockerfile-pytorch2407 .
 
 FROM nvcr.io/nvidia/dgl:24.07-py3
-
+LABEL org.opencontainers.image.source=https://github.com/Australian-Protein-Design-Initiative/containers
 # Using vendor-specific namespace for our custom platform annotation
 LABEL org.australian-protein-design-initiative.image.platforms="linux/arm64,linux/amd64"
 

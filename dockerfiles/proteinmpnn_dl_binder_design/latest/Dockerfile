@@ -12,6 +12,7 @@ ARG DLBINDER_COMMIT=cafa385
 ARG PROTEINMPNN_COMMIT=8907e66
 
 FROM continuumio/miniconda3:latest
+LABEL org.opencontainers.image.source https://github.com/Australian-Protein-Design-Initiative/containers
 
 ENV DEBIAN_FRONTEND=noninteractive
 

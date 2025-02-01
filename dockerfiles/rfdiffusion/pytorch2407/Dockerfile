@@ -1,4 +1,5 @@
 FROM nvcr.io/nvidia/pytorch:24.07-py3
+LABEL org.opencontainers.image.source=https://github.com/Australian-Protein-Design-Initiative/containers
 
 RUN apt-get -q update \ 
   && DEBIAN_FRONTEND=noninteractive apt-get install --no-install-recommends -y \

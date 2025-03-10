@@ -1,6 +1,7 @@
 # containers
-Docker / Apptainer containers for tools
+Docker / Apptainer containers for protein design tools
 
+> NOTE: Some of these containers use PyRosetta/Rosetta, which is free for non-commercial use, however commercial use requires a paid license agreement with University of Washington: https://github.com/RosettaCommons/rosetta/blob/main/LICENSE.md and https://rosettacommons.org/software/licensing-faq/
 
 ## Building locally
 

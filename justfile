@@ -58,6 +58,23 @@ build container version *args='':
         ${secrets_arg} \
         ${push_arg} \
         dockerfiles/{{container}}/{{version}}
+    
+    # Skip Apptainer build for multi-platform or push builds
+    if [[ "$platforms" == *,* || "{{args}}" == *"--push"* ]]; then
+        echo "Skipping Apptainer build for multi-platform or push build"
+        return 0
+    fi
+    
+    # Create apptainer_containers directory if it doesn't exist
+    mkdir -p apptainer_containers
+    
+    # Format image name and tag for Apptainer (replace colons with underscores)
+    image_name="{{REGISTRY}}/{{ORGANIZATION}}/{{container}}"
+    image_tag="{{version}}"
+    apptainer_name="${image_name//\//_}_${image_tag//:/_}"
+    
+    echo "Building Apptainer container: ${apptainer_name}.sif"
+    apptainer build "apptainer_containers/${apptainer_name}.sif" "docker-daemon://${image_name}:${image_tag}"
 
 # Build and push a specific container and version
 push container version: (build container version "--push")
@@ -68,6 +85,9 @@ build-all:
     set -uo pipefail
     
     failed_builds=()
+    
+    # Ensure apptainer_containers directory exists
+    mkdir -p apptainer_containers
     
     # Find all Dockerfiles and build them
     while IFS= read -r dockerfile; do

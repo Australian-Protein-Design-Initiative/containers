@@ -52,7 +52,7 @@ RUN mkdir -p "/usr/local/lib/python3.10/dist-packages/rfdiffusion/inference/../.
   http://files.ipd.uw.edu/pub/RFdiffusion/f572d396fae9206628714fb2ce00f72e/Complex_beta_ckpt.pt \
   http://files.ipd.uw.edu/pub/RFdiffusion/1befcb9b28e2f778f53d47f18b7597fa/RF_structure_prediction_weights.pt
 
-RUN ln -s /usr/local/lib/python3.10/dist-packages/rfdiffusion/inference/../../models /models
+RUN mkdir -p /models && ln -s /usr/local/lib/python3.10/dist-packages/rfdiffusion/inference/../../models /models/rfdiffusion
 
 WORKDIR /app/RFdiffusion
 

@@ -67,7 +67,7 @@ RUN mkdir -p "/usr/local/lib/python3.10/dist-packages/rfdiffusion/inference/../.
 # https://github.com/pytorch/data/issues/1196
 # RUN pip install --no-cache-dir git+https://github.com/pytorch/data.git@v0.9.0
 
-RUN ln -s /usr/local/lib/python3.10/dist-packages/rfdiffusion/inference/../../models /models
+RUN mkdir -p /models && ln -s /usr/local/lib/python3.10/dist-packages/rfdiffusion/inference/../../models /models/rfdiffusion
 
 WORKDIR /app/RFdiffusion
 

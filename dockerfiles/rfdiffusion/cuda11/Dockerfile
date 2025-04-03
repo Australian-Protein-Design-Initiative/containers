@@ -74,7 +74,7 @@ RUN mkdir -p "/usr/local/lib/python3.9/dist-packages/rfdiffusion/inference/../..
   http://files.ipd.uw.edu/pub/RFdiffusion/1befcb9b28e2f778f53d47f18b7597fa/RF_structure_prediction_weights.pt
 
 
-RUN ln -s /usr/local/lib/python3.9/dist-packages/rfdiffusion/inference/../../models /models
+RUN mkdir -p /models && ln -s /usr/local/lib/python3.9/dist-packages/rfdiffusion/inference/../../models /models/rfdiffusion
 RUN ln -s /usr/bin/python3.9 /usr/bin/python
 
 WORKDIR /app/RFdiffusion

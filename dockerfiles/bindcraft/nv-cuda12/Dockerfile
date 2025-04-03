@@ -8,6 +8,7 @@ LABEL org.australian-protein-design-initiative.image.platforms="linux/amd64"
 # previously set).
 ARG CUDA
 ARG TARGETARCH
+ARG BRANCH=cd8d222
 
 ENV DEBIAN_FRONTEND=noninteractive
 
@@ -42,7 +43,9 @@ RUN if [ "$TARGETARCH" = "arm64" ]; then \
 ENV PATH="/opt/conda/bin:$PATH"
 ENV LD_LIBRARY_PATH="/opt/conda/lib:$LD_LIBRARY_PATH"
 
-RUN git clone https://github.com/martinpacesa/BindCraft /app/BindCraft
+RUN git clone https://github.com/martinpacesa/BindCraft /app/BindCraft && \
+    cd /app/BindCraft && \
+    git checkout ${BRANCH}
 
 WORKDIR /app/BindCraft/
 

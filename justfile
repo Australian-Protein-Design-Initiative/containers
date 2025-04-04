@@ -51,13 +51,16 @@ build container version *args='':
     fi
 
     # Build and push the image
-    docker buildx build \
+    if ! docker buildx build \
         --platform "${platforms}" \
         --tag "{{REGISTRY}}/{{ORGANIZATION}}/{{container}}:{{version}}" \
         --tag "{{REGISTRY}}/{{ORGANIZATION}}/{{container}}:{{version}}-${datestamp}" \
         ${secrets_arg} \
         ${push_arg} \
-        dockerfiles/{{container}}/{{version}}
+        dockerfiles/{{container}}/{{version}}; then
+        echo "Docker build failed, skipping Apptainer build"
+        exit 1
+    fi
     
     # Skip Apptainer build for multi-platform or push builds
     if [[ "$platforms" == *,* || "{{args}}" == *"--push"* ]]; then
@@ -74,7 +77,7 @@ build container version *args='':
     apptainer_name="${image_name//\//_}_${image_tag//:/_}"
     
     echo "Building Apptainer container: ${apptainer_name}.sif"
-    apptainer build "apptainer_containers/${apptainer_name}.sif" "docker-daemon://${image_name}:${image_tag}"
+    apptainer build --force "apptainer_containers/${apptainer_name}.sif" "docker-daemon://${image_name}:${image_tag}"
 
 # Build and push a specific container and version
 push container version: (build container version "--push")

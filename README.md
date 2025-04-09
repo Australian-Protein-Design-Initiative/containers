@@ -5,17 +5,6 @@ Docker / Apptainer containers for protein design tools
 
 ## Building locally
 
-If you need to build containers that require secrets, copy the example environment file and edit it:
-
-```bash
-cp .env.example .env
-# Edit .env with your secrets:
-# - ROSETTA_PASSWORD for building containers with RosettaCommons
-# - GITHUB_TOKEN for pushing to container registry
-```
-
-Then build containers:
-
 ```bash
 # Build a specific container and version locally
 just build rfdiffusion cuda11

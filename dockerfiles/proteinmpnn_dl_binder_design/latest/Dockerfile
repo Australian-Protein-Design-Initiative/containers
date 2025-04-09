@@ -2,12 +2,10 @@
 #
 # cd dl_binder_design
 #
-# echo "$ROSETTACOMMONS_PASSWORD" >/tmp/rosetta_password.txt; \
-# docker build -f ../Dockerfile.proteinmpnn_fastrelax \
-#   --secret id=rosetta_password,src=/tmp/rosetta_password.txt \
-#   -t proteinmpnn_fastrelax:latest . ; \
-# rm /tmp/rosetta_password.txt
+# docker build -f ../Dockerfile.proteinmpnn_fastrelax 
+#   -t proteinmpnn_fastrelax:latest . 
 #
+
 ARG DLBINDER_COMMIT=cafa385
 ARG PROTEINMPNN_COMMIT=8907e66
 
@@ -21,12 +19,8 @@ RUN apt-get update && apt-get install -y \
     wget \
     && rm -rf /var/lib/apt/lists/*
 
-# ROSETTA_PASSWORD must be provided via a docker secret
-ARG ROSETTACOMMONS_USER=Academic_User
-RUN --mount=type=secret,id=rosetta_password \
-    ROSETTA_PW=$(cat /run/secrets/rosetta_password) && \
-    conda install -y \
-    -c https://${ROSETTACOMMONS_USER}:${ROSETTA_PW}@conda.rosettacommons.org \
+RUN conda install -y \
+    -c https://conda.rosettacommons.org \
     -c pytorch \
     -c nvidia \
     -c conda-forge \

@@ -31,12 +31,8 @@ RUN wget -q -P /tmp \
 ENV PATH="/opt/conda/bin:$PATH"
 ENV LD_LIBRARY_PATH="/opt/conda/lib:$LD_LIBRARY_PATH"
 
-# ROSETTA_PASSWORD must be provided via a docker secret
-ARG ROSETTACOMMONS_USER=Academic_User
-RUN --mount=type=secret,id=rosetta_password \
-    ROSETTA_PW=$(cat /run/secrets/rosetta_password) && \
-    conda install -y \
-    -c https://${ROSETTACOMMONS_USER}:${ROSETTA_PW}@conda.rosettacommons.org \
+RUN conda install -y \
+    -c https://conda.rosettacommons.org \
     -c pytorch \
     -c nvidia \
     -c conda-forge \
@@ -85,5 +81,13 @@ RUN git clone https://github.com/nrbennet/dl_binder_design && \
     git checkout cafa385
 
 RUN python /app/dl_binder_design/include/importtests/af2_importtest.py
+
+RUN mkdir -p /models/af2_initial_guess/model_weights/params \
+    && mkdir -p /app/dl_binder_design/af2_initial_guess/model_weights \
+    && cd /models/af2_initial_guess/model_weights/params \
+    && ln -s /models/af2_initial_guess/model_weights/params /app/dl_binder_design/af2_initial_guess/model_weights/params \
+    && wget https://storage.googleapis.com/alphafold/alphafold_params_2022-12-06.tar \
+    && tar --extract --verbose --file=alphafold_params_2022-12-06.tar \
+    && rm alphafold_params_2022-12-06.tar
 
 CMD ["python", "/app/dl_binder_design/af2_initial_guess/predict.py"]

@@ -32,7 +32,7 @@ RUN apt-get -q update \
   && apt-get autoremove -y \
   && apt-get clean \
   && pip install -q --no-cache-dir \
-  e3nn==0.5.4 \
+  e3nn==0.5.5 \
   wandb==0.19.2 \
   pynvml==11.4.1 \
   git+https://github.com/NVIDIA/dllogger#egg=dllogger \

@@ -37,17 +37,19 @@ build container version *args='':
         secrets_arg="--secret id=rosetta_password,env=ROSETTA_PASSWORD"
     fi
 
-    # Check if we need to push
-    if [[ "$platforms" == *,* && "{{args}}" != *"--push"* ]]; then
-        echo "Error: Multi-platform builds require --push flag"
-        echo "Platforms specified: $platforms"
-        exit 1
-    fi
-
-    # Determine if we should push
-    push_arg="--load"
-    if [[ "{{args}}" == *"--push"* ]]; then
-        push_arg="--push"
+    # Determine output mode and remove --push from args if present
+    other_args="{{args}}"
+    output_args="--load" # Default action is to build and load locally.
+    
+    if [[ " {{args}} " == *" --push "* ]]; then
+        other_args=$(echo " {{args}} " | sed 's/ --push / /g' | xargs)
+        # If pushing a multi-platform image, only push.
+        if [[ "$platforms" == *,* ]]; then
+            output_args="--push"
+        # If pushing a single-platform image, push AND load.
+        else
+            output_args="--output type=docker --output type=registry"
+        fi
     fi
 
     # Build and push the image
@@ -56,17 +58,23 @@ build container version *args='':
         --tag "{{REGISTRY}}/{{ORGANIZATION}}/{{container}}:{{version}}" \
         --tag "{{REGISTRY}}/{{ORGANIZATION}}/{{container}}:{{version}}-${datestamp}" \
         ${secrets_arg} \
-        ${push_arg} \
+        ${output_args} \
+        ${other_args} \
         dockerfiles/{{container}}/{{version}}; then
         echo "Docker build failed, skipping Apptainer build"
         exit 1
     fi
     
-    # Skip Apptainer build for multi-platform or push builds
-    if [[ "$platforms" == *,* || "{{args}}" == *"--push"* ]]; then
-        echo "Skipping Apptainer build for multi-platform or push build"
-        return 0
+    # Skip Apptainer build for multi-platform builds
+    if [[ "$platforms" == *,* ]]; then
+        echo "Skipping Apptainer build for multi-platform build"
+        exit 0
     fi
+    # Skip Apptainer build for push builds
+    # if [[ "{{args}}" == *"--push"* ]]; then
+    #     echo "Skipping Apptainer build for push build"
+    #     exit 0
+    # fi
     
     # Create apptainer_containers directory if it doesn't exist
     mkdir -p apptainer_containers
@@ -80,7 +88,7 @@ build container version *args='':
     apptainer build --force "apptainer_containers/${apptainer_name}.sif" "docker-daemon://${image_name}:${image_tag}"
 
 # Build and push a specific container and version
-push container version: (build container version "--push")
+push container version *args='': (build container version "--push" args)
 
 # Build all containers
 build-all:

@@ -17,6 +17,9 @@ just build-all
 
 # Build and push all containers to registry
 just push-all
+
+# Build and push, ignoring the Docker build cache (other docker build args can be passed also)
+just push boltz latest --no-cache
 ```
 
 ## Testing Github Actions locally with act

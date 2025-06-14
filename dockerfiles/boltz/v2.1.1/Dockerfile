@@ -4,7 +4,7 @@ FROM ubuntu:24.04
 LABEL org.opencontainers.image.source=https://github.com/Australian-Protein-Design-Initiative/containers
 LABEL org.australian-protein-design-initiative.image.platforms="linux/amd64"
 
-ARG GIT_REF=main
+ARG GIT_REF=v2.1.1
 ARG CCD_URL="https://huggingface.co/boltz-community/boltz-1/resolve/main/ccd.pkl"
 ARG MOL_URL="https://huggingface.co/boltz-community/boltz-2/resolve/main/mols.tar"
 ARG BOLTZ2_WEIGHTS_URL="https://huggingface.co/boltz-community/boltz-2/resolve/main/boltz2_conf.ckpt"

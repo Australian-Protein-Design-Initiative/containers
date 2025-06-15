@@ -1,7 +1,8 @@
-FROM python:3.11-slim
+FROM python:3.13-slim
 LABEL org.opencontainers.image.source=https://github.com/Australian-Protein-Design-Initiative/containers
 
-ARG MDANALYSIS_VERSION=2.8.0
+ARG QUARTO_VERSION=1.7.31
+ARG MDANALYSIS_VERSION=2.9.0
 
 # Set environment variables
 ENV PYTHONDONTWRITEBYTECODE=1 \
@@ -16,8 +17,13 @@ RUN apt-get update && apt-get install -y --no-install-recommends \
     gnupg \
     ca-certificates \
     procps \
+    pandoc \
     && apt-get clean \
     && rm -rf /var/lib/apt/lists/*
+
+RUN curl -L -o quarto-${QUARTO_VERSION}-linux-amd64.deb https://github.com/quarto-dev/quarto-cli/releases/download/v${QUARTO_VERSION}/quarto-${QUARTO_VERSION}-linux-amd64.deb && \
+    dpkg -i quarto-${QUARTO_VERSION}-linux-amd64.deb && \
+    rm quarto-${QUARTO_VERSION}-linux-amd64.deb
 
 # Install Node.js 20.x
 RUN curl -fsSL https://deb.nodesource.com/setup_20.x | bash - && \
@@ -36,7 +42,15 @@ RUN pip install --upgrade pip && \
     biopython \
     jupyterlab \
     ipywidgets \
-    jupyter_core
+    jupyter_core \
+    altair \
+    seaborn\
+    matplotlib \
+    scipy \
+    scikit-learn \
+    plotly \
+    statsmodels \
+    itables
 
 # Install Jupyter widget extension
 RUN jupyter labextension install @jupyter-widgets/jupyterlab-manager

@@ -46,4 +46,18 @@ RUN cd /app/dl_binder_design/mpnn_fr && \
 
 RUN python /app/dl_binder_design/include/importtests/proteinmpnn_importtest.py
 
-CMD ["python", "/app/dl_binder_design/mpnn_fr/dl_interface_design.py"] 
+# Make the weights available under /models/ProteinMPNN
+RUN mkdir -p /models/ProteinMPNN && \
+    ln -s /app/dl_binder_design/mpnn_fr/ProteinMPNN/vanilla_model_weights /models/ProteinMPNN/vanilla_model_weights && \
+    ln -s /app/dl_binder_design/mpnn_fr/ProteinMPNN/soluble_model_weights /models/ProteinMPNN/soluble_model_weights && \
+    ln -s /app/dl_binder_design/mpnn_fr/ProteinMPNN/ca_model_weights /models/ProteinMPNN/ca_model_weights
+
+# Download the HyperMPNN weights to /models/HyperMPNN
+RUN mkdir -p /models/HyperMPNN && \
+    cd /models/HyperMPNN && \
+    wget https://github.com/meilerlab/HyperMPNN/raw/refs/heads/main/retrained_models/v48_002_epoch240_hyper.pt && \
+    wget https://github.com/meilerlab/HyperMPNN/raw/refs/heads/main/retrained_models/v48_010_epoch300_hyper.pt && \
+    wget https://github.com/meilerlab/HyperMPNN/raw/refs/heads/main/retrained_models/v48_020_epoch300_hyper.pt && \
+    wget https://github.com/meilerlab/HyperMPNN/raw/refs/heads/main/retrained_models/v48_030_epoch300_hyper.pt
+
+CMD ["python", "/app/dl_binder_design/mpnn_fr/dl_interface_design.py"]

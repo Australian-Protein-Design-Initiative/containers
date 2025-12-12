@@ -79,13 +79,13 @@ build container version *args='':
     # Create apptainer_containers directory if it doesn't exist
     mkdir -p apptainer_containers
     
-    # Format image name and tag for Apptainer (replace colons with underscores)
+    # Format image name and tag for Apptainer (replace slashes and colons with dashes)
     image_name="{{REGISTRY}}/{{ORGANIZATION}}/{{container}}"
     image_tag="{{version}}"
-    apptainer_name="${image_name//\//_}_${image_tag//:/_}"
+    apptainer_name="${image_name//\//-}-${image_tag//:/-}"
     
-    echo "Building Apptainer container: ${apptainer_name}.sif"
-    apptainer build --force "apptainer_containers/${apptainer_name}.sif" "docker-daemon://${image_name}:${image_tag}"
+    echo "Building Apptainer container: ${apptainer_name}.img"
+    apptainer build --force "apptainer_containers/${apptainer_name}.img" "docker-daemon://${image_name}:${image_tag}"
 
 # Build and push a specific container and version
 push container version *args='': (build container version "--push" args)

@@ -24,7 +24,7 @@ env:
 
 jobs:
   detect-changes:
-    runs-on: ubuntu-latest
+    runs-on: self-hosted
     outputs:
       matrix: ${{ steps.set-matrix.outputs.matrix }}
     steps:
@@ -94,7 +94,7 @@ jobs:
   build-and-push-image:
     needs: detect-changes
     if: ${{ fromJson(needs.detect-changes.outputs.matrix).include[0] }}
-    runs-on: ubuntu-latest
+    runs-on: self-hosted
     permissions:
       contents: read
       packages: write

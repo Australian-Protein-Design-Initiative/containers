@@ -2,6 +2,7 @@
 
 # Use Ubuntu as base image
 FROM ubuntu:22.04
+LABEL org.opencontainers.image.source=https://github.com/Australian-Protein-Design-Initiative/containers
 
 # Set build arguments
 ARG GIT_REF=cc35dc1

@@ -71,7 +71,7 @@ jobs:
                 CONTAINER_INFO=$(generate_container_info "$dir")
                 CONTAINERS_JSON=$(echo "$CONTAINERS_JSON" | jq --arg info "$CONTAINER_INFO" '. += [($info | fromjson)]')
               done < <(find dockerfiles/${{ inputs.container }} -mindepth 1 -maxdepth 1 -type d)
-              CONTAINERS=$(echo "{\"include\": $CONTAINERS_JSON}")
+              CONTAINERS=$(echo "$CONTAINERS_JSON" | jq -c '{include: .}')
             fi
           else
             # Push trigger - use changed files
@@ -87,7 +87,7 @@ jobs:
               exit 0
             fi
             
-            CONTAINERS=$(echo "{\"include\": $CONTAINERS_JSON}")
+            CONTAINERS=$(echo "$CONTAINERS_JSON" | jq -c '{include: .}')
           fi
           echo "matrix=${CONTAINERS}" >> $GITHUB_OUTPUT
 

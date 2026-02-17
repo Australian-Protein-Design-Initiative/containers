@@ -136,8 +136,8 @@ jobs:
         with:
           push: true
           platforms: ${{ matrix.platforms }}
-          cache-from: type=gha
-          cache-to: type=gha,mode=max
+          cache-from: type=registry,ref=${{ env.REGISTRY }}/${{ env.ORGANIZATION }}/${{ matrix.container }}:buildcache
+          cache-to: type=registry,ref=${{ env.REGISTRY }}/${{ env.ORGANIZATION }}/${{ matrix.container }}:buildcache,mode=max
           context: ${{ matrix.path }}
           tags: |
             ${{ env.REGISTRY }}/${{ env.ORGANIZATION }}/${{ matrix.container }}:${{ matrix.version }}

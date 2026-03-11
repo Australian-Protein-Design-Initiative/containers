@@ -12,20 +12,23 @@ ORGANIZATION := "australian-protein-design-initiative/containers"
 
 # List all available containers
 list:
-    @find dockerfiles -mindepth 2 -maxdepth 2 -type f -name Dockerfile | cut -d'/' -f2-3 | sed 's|/| |'
+    @find dockerfiles -mindepth 2 -maxdepth 2 -type f -name Dockerfile | cut -d'/' -f2-3
 
-# Build a specific container and version
-build container version *args='':
+# Build a specific container and version (e.g. just build germinal/5efad8f)
+build container_version *args='':
     #!/usr/bin/env bash
-    if [ ! -d "dockerfiles/{{container}}/{{version}}" ]; then
-        echo "Error: Container {{container}} version {{version}} not found"
+    container_version="{{container_version}}"
+    container="${container_version%/*}"
+    version="${container_version#*/}"
+    if [ ! -d "dockerfiles/${container}/${version}" ]; then
+        echo "Error: Container ${container} version ${version} not found"
         exit 1
     fi
 
     # Get platforms from Dockerfile label or default to linux/amd64
     platforms="linux/amd64"
-    if grep -q "^LABEL.*org.australian-protein-design-initiative.image.platforms=" "dockerfiles/{{container}}/{{version}}/Dockerfile"; then
-        platforms=$(grep "^LABEL.*org.australian-protein-design-initiative.image.platforms=" "dockerfiles/{{container}}/{{version}}/Dockerfile" | sed 's/.*platforms="\(.*\)".*/\1/')
+    if grep -q "^LABEL.*org.australian-protein-design-initiative.image.platforms=" "dockerfiles/${container}/${version}/Dockerfile"; then
+        platforms=$(grep "^LABEL.*org.australian-protein-design-initiative.image.platforms=" "dockerfiles/${container}/${version}/Dockerfile" | sed 's/.*platforms="\(.*\)".*/\1/')
     fi
 
     # Generate datestamp for tag
@@ -55,12 +58,12 @@ build container version *args='':
     # Build and push the image
     if ! docker buildx build \
         --platform "${platforms}" \
-        --tag "{{REGISTRY}}/{{ORGANIZATION}}/{{container}}:{{version}}" \
-        --tag "{{REGISTRY}}/{{ORGANIZATION}}/{{container}}:{{version}}-${datestamp}" \
+        --tag "{{REGISTRY}}/{{ORGANIZATION}}/${container}:${version}" \
+        --tag "{{REGISTRY}}/{{ORGANIZATION}}/${container}:${version}-${datestamp}" \
         ${secrets_arg} \
         ${output_args} \
         ${other_args} \
-        dockerfiles/{{container}}/{{version}}; then
+        "dockerfiles/${container}/${version}"; then
         echo "Docker build failed, skipping Apptainer build"
         exit 1
     fi
@@ -80,15 +83,15 @@ build container version *args='':
     mkdir -p apptainer_containers
     
     # Format image name and tag for Apptainer (replace slashes and colons with dashes)
-    image_name="{{REGISTRY}}/{{ORGANIZATION}}/{{container}}"
-    image_tag="{{version}}"
+    image_name="{{REGISTRY}}/{{ORGANIZATION}}/${container}"
+    image_tag="${version}"
     apptainer_name="${image_name//\//-}-${image_tag//:/-}"
     
     echo "Building Apptainer container: ${apptainer_name}.img"
     apptainer build --force "apptainer_containers/${apptainer_name}.img" "docker-daemon://${image_name}:${image_tag}"
 
-# Build and push a specific container and version
-push container version *args='': (build container version "--push" args)
+# Build and push a specific container and version (e.g. just push germinal/5efad8f)
+push container_version *args='': (build container_version "--push" args)
 
 # Build all containers
 build-all:
@@ -105,8 +108,8 @@ build-all:
         if [[ -f "$dockerfile" ]]; then
             container=$(echo "$dockerfile" | cut -d'/' -f3)
             version=$(echo "$dockerfile" | cut -d'/' -f4)
-            echo "Building $container:$version..."
-            if ! just build "$container" "$version"; then
+            echo "Building $container/$version..."
+            if ! just build "$container/$version"; then
                 echo "Failed to build $container:$version"
                 failed_builds+=("$container:$version")
             fi
@@ -139,8 +142,8 @@ push-all:
         if [[ -f "$dockerfile" ]]; then
             container=$(echo "$dockerfile" | cut -d'/' -f3)
             version=$(echo "$dockerfile" | cut -d'/' -f4)
-            echo "Building and pushing $container:$version..."
-            if ! just push "$container" "$version"; then
+            echo "Building and pushing $container/$version..."
+            if ! just push "$container/$version"; then
                 echo "Failed to build and push $container:$version"
                 failed_pushes+=("$container:$version")
             fi

@@ -7,10 +7,10 @@ Docker / Apptainer containers for protein design tools
 
 ```bash
 # Build a specific container and version locally
-just build rfdiffusion cuda11
+just build rfdiffusion/cuda11
 
 # Build and push a specific container and version to registry
-just push rfdiffusion cuda11
+just push rfdiffusion/cuda11
 
 # Build all containers locally
 just build-all
@@ -19,7 +19,7 @@ just build-all
 just push-all
 
 # Build and push, ignoring the Docker build cache (other docker build args can be passed also)
-just push boltz latest --no-cache
+just push boltz/latest --no-cache
 ```
 
 ## Testing Github Actions locally with act

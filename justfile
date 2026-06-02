@@ -18,6 +18,11 @@ list:
 build container_version *args='':
     #!/usr/bin/env bash
     container_version="{{container_version}}"
+    # Accept dockerfile(s)/ prefix from copy-pasted paths (e.g. dockerfile/proteina-complexa/916eaae)
+    case "$container_version" in
+        dockerfile/*) container_version="${container_version#dockerfile/}" ;;
+        dockerfiles/*) container_version="${container_version#dockerfiles/}" ;;
+    esac
     container="${container_version%/*}"
     version="${container_version#*/}"
     if [ ! -d "dockerfiles/${container}/${version}" ]; then

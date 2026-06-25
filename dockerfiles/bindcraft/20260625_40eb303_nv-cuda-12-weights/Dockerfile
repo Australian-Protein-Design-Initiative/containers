@@ -69,14 +69,13 @@ RUN apt-get update --quiet \
     && apt-get autoremove --yes \
     && apt-get clean
 
-RUN wget -q -P /tmp https://repo.anaconda.com/miniconda/Miniconda3-latest-Linux-x86_64.sh \
-    && bash /tmp/Miniconda3-latest-Linux-x86_64.sh -b -p /opt/conda \
-    && rm /tmp/Miniconda3-latest-Linux-x86_64.sh \
-    && /opt/conda/bin/conda tos accept --override-channels --channel https://repo.anaconda.com/pkgs/main \
-    && /opt/conda/bin/conda tos accept --override-channels --channel https://repo.anaconda.com/pkgs/r \
-    && /opt/conda/bin/conda config --remove channels defaults \
-    && /opt/conda/bin/conda install -c conda-forge mamba \
-    && /opt/conda/bin/conda install -c conda-forge ncurses
+# Miniforge (conda-forge by default — includes mamba; avoids Anaconda defaults-channel ToS
+# and the sqlite lock errors seen installing mamba into recent Miniconda base).
+RUN wget -q -O /tmp/miniforge.sh \
+       https://github.com/conda-forge/miniforge/releases/latest/download/Miniforge3-Linux-x86_64.sh \
+    && bash /tmp/miniforge.sh -b -p /opt/conda \
+    && rm /tmp/miniforge.sh \
+    && /opt/conda/bin/mamba install -c conda-forge ncurses
 
 ENV PATH="/opt/conda/bin:${PATH}"
 ENV LD_LIBRARY_PATH="/opt/conda/lib:${LD_LIBRARY_PATH}"

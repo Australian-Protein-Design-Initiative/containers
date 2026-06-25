@@ -78,11 +78,6 @@ build container_version *args='':
         echo "Skipping Apptainer build for multi-platform build"
         exit 0
     fi
-    # Skip Apptainer build for push builds
-    # if [[ "{{args}}" == *"--push"* ]]; then
-    #     echo "Skipping Apptainer build for push build"
-    #     exit 0
-    # fi
     
     # Create apptainer_containers directory if it doesn't exist
     mkdir -p apptainer_containers
@@ -92,8 +87,40 @@ build container_version *args='':
     image_tag="${version}"
     apptainer_name="${image_name//\//-}-${image_tag//:/-}"
     
-    echo "Building Apptainer container: ${apptainer_name}.img"
-    apptainer build --force "apptainer_containers/${apptainer_name}.img" "docker-daemon://${image_name}:${image_tag}"
+    apptainer_img="apptainer_containers/${apptainer_name}.img"
+    echo "Building Apptainer container: ${apptainer_img}"
+    apptainer build --force "${apptainer_img}" "docker-daemon://${image_name}:${image_tag}"
+
+    if [[ " {{args}} " == *" --push "* ]]; then
+        oras_ref="oras://${image_name}:${image_tag}"
+        oras_ref_datestamp="oras://${image_name}:${image_tag}-${datestamp}"
+
+        if [ -n "${GITHUB_TOKEN:-}" ]; then
+            echo "${GITHUB_TOKEN}" | apptainer registry login -u USERNAME --password-stdin oras://ghcr.io
+        fi
+
+        push_apptainer_oras() {
+            local ref="$1"
+            local output
+            local rc
+            echo "Pushing Apptainer container to ${ref}"
+            output=$(apptainer push "${apptainer_img}" "${ref}" 2>&1) && return 0
+            rc=$?
+            echo "${output}"
+            if echo "${output}" | grep -qiE 'unauthorized|authentication|not logged|401|403|denied|login required|please log'; then
+                echo ""
+                echo "Warning: Apptainer ORAS push failed due to missing or invalid authentication."
+                echo "Log in with:"
+                echo "  apptainer registry login -u <github_username> -p <pat_token> oras://ghcr.io"
+                echo ""
+                echo "Or set GITHUB_TOKEN in .env and run 'just login' first."
+            fi
+            return "${rc}"
+        }
+
+        push_apptainer_oras "${oras_ref}"
+        push_apptainer_oras "${oras_ref_datestamp}"
+    fi
 
 # Build and push a specific container and version (e.g. just push germinal/5efad8f)
 push container_version *args='': (build container_version "--push" args)
@@ -141,6 +168,7 @@ push-all:
 
     echo "Logging into registry..."
     echo "${GITHUB_TOKEN}" | docker login {{REGISTRY}} -u USERNAME --password-stdin
+    echo "${GITHUB_TOKEN}" | apptainer registry login -u USERNAME --password-stdin oras://ghcr.io
 
     # Find all Dockerfiles and build+push them
     while IFS= read -r dockerfile; do
@@ -168,4 +196,5 @@ login:
         echo "Error: GITHUB_TOKEN not set in .env file"
         exit 1
     fi
-    echo "${GITHUB_TOKEN}" | docker login {{REGISTRY}} -u USERNAME --password-stdin 
+    echo "${GITHUB_TOKEN}" | docker login {{REGISTRY}} -u USERNAME --password-stdin
+    echo "${GITHUB_TOKEN}" | apptainer registry login -u USERNAME --password-stdin oras://ghcr.io

@@ -147,3 +147,27 @@ jobs:
           file: ${{ matrix.path }}/Dockerfile
           secrets: |
             "rosetta_password=${{ secrets.ROSETTA_PASSWORD }}"
+
+      - name: Setup Apptainer
+        if: ${{ !contains(matrix.platforms, ',') }}
+        uses: eWaterCycle/setup-apptainer@v2
+        with:
+          apptainer-version: '1.3.0'
+
+      - name: Log in to GitHub Container Registry (ORAS)
+        if: ${{ !contains(matrix.platforms, ',') }}
+        run: echo "${{ secrets.GITHUB_TOKEN }}" | apptainer registry login -u ${{ github.actor }} --password-stdin oras://ghcr.io
+
+      - name: Build Apptainer image from Docker image
+        if: ${{ !contains(matrix.platforms, ',') }}
+        run: |
+          apptainer build --force "${{ matrix.container }}.sif" \
+            "docker://${{ env.REGISTRY }}/${{ env.ORGANIZATION }}/${{ matrix.container }}:${{ matrix.version }}"
+
+      - name: Push Apptainer image to GHCR via ORAS
+        if: ${{ !contains(matrix.platforms, ',') }}
+        run: |
+          IMAGE="oras://${{ env.REGISTRY }}/${{ env.ORGANIZATION }}/${{ matrix.container }}"
+          apptainer push "${{ matrix.container }}.sif" "${IMAGE}:${{ matrix.version }}"
+          apptainer push "${{ matrix.container }}.sif" "${IMAGE}:${{ matrix.version }}-${{ github.run_number }}"
+          apptainer push "${{ matrix.container }}.sif" "${IMAGE}:${{ matrix.version }}-${{ env.datestamp }}"

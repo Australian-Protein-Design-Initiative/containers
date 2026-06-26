@@ -9,6 +9,10 @@ ORGANIZATION := "australian-protein-design-initiative/containers"
 # Optional environment variables (set in .env file):
 # ROSETTA_PASSWORD: Password for downloading Rosetta binaries
 # GITHUB_TOKEN: GitHub token for pushing to container registry
+# APPTAINER_IGNORE_PROOT: Set to 0 to re-enable proot (default 1; avoids ptrace failures on hardened hosts)
+
+# Default for all recipes; bash recipes also apply ${APPTAINER_IGNORE_PROOT:-1} so .env can override.
+export APPTAINER_IGNORE_PROOT := "1"
 
 # List all available containers
 list:
@@ -17,6 +21,7 @@ list:
 # Build a specific container and version (e.g. just build germinal/5efad8f)
 build container_version *args='':
     #!/usr/bin/env bash
+    export APPTAINER_IGNORE_PROOT="${APPTAINER_IGNORE_PROOT:-1}"
     container_version="{{container_version}}"
     # Accept dockerfile(s)/ prefix from copy-pasted paths (e.g. dockerfile/proteina-complexa/916eaae)
     case "$container_version" in
@@ -88,8 +93,27 @@ build container_version *args='':
     apptainer_name="${image_name//\//-}-${image_tag//:/-}"
     
     apptainer_img="apptainer_containers/${apptainer_name}.img"
+    apptainer_build_source="docker-daemon://${image_name}:${image_tag}"
+    if [[ " {{args}} " == *" --push "* ]]; then
+        # Image is already in the registry; build from there instead of the local daemon.
+        apptainer_build_source="docker://${image_name}:${image_tag}"
+    fi
+
+    apptainer_build() {
+        apptainer build --force "${apptainer_img}" "${apptainer_build_source}"
+    }
+
     echo "Building Apptainer container: ${apptainer_img}"
-    apptainer build --force "${apptainer_img}" "docker-daemon://${image_name}:${image_tag}"
+    if ! apptainer_build; then
+        if [[ " {{args}} " == *" --push "* ]]; then
+            echo ""
+            echo "Warning: Apptainer build failed (Docker image was pushed successfully)."
+            echo "ORAS Apptainer images cannot be published without a local SIF build."
+            echo "Or push the Dockerfile to trigger GitHub Actions, which builds and publishes the ORAS image."
+            exit 0
+        fi
+        exit 1
+    fi
 
     if [[ " {{args}} " == *" --push "* ]]; then
         oras_ref="oras://${image_name}:${image_tag}"
@@ -129,6 +153,7 @@ push container_version *args='': (build container_version "--push" args)
 build-all:
     #!/usr/bin/env bash
     set -uo pipefail
+    export APPTAINER_IGNORE_PROOT="${APPTAINER_IGNORE_PROOT:-1}"
     
     failed_builds=()
     
@@ -158,6 +183,7 @@ build-all:
 push-all:
     #!/usr/bin/env bash
     set -uo pipefail
+    export APPTAINER_IGNORE_PROOT="${APPTAINER_IGNORE_PROOT:-1}"
     
     failed_pushes=()
 
@@ -192,6 +218,7 @@ push-all:
 # Login to the container registry using GITHUB_TOKEN
 login:
     #!/usr/bin/env bash
+    export APPTAINER_IGNORE_PROOT="${APPTAINER_IGNORE_PROOT:-1}"
     if [ -z "${GITHUB_TOKEN:-}" ]; then
         echo "Error: GITHUB_TOKEN not set in .env file"
         exit 1

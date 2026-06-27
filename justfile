@@ -93,18 +93,33 @@ build container_version *args='':
     apptainer_name="${image_name//\//-}-${image_tag//:/-}"
     
     apptainer_img="apptainer_containers/${apptainer_name}.img"
-    apptainer_build_source="docker-daemon://${image_name}:${image_tag}"
-    if [[ " {{args}} " == *" --push "* ]]; then
-        # Image is already in the registry; build from there instead of the local daemon.
-        apptainer_build_source="docker://${image_name}:${image_tag}"
-    fi
+    apptainer_daemon_ref="docker-daemon://${image_name}:${image_tag}"
+    apptainer_registry_ref="docker://${image_name}:${image_tag}"
 
-    apptainer_build() {
-        apptainer build --force "${apptainer_img}" "${apptainer_build_source}"
+    apptainer_build_from() {
+        local source="$1"
+        echo "Building Apptainer container: ${apptainer_img} (from ${source})"
+        apptainer build --force "${apptainer_img}" "${source}"
     }
 
-    echo "Building Apptainer container: ${apptainer_img}"
-    if ! apptainer_build; then
+    apptainer_build_ok=false
+    if docker image inspect "${image_name}:${image_tag}" >/dev/null 2>&1; then
+        if apptainer_build_from "${apptainer_daemon_ref}"; then
+            apptainer_build_ok=true
+        else
+            echo "Apptainer build from local Docker daemon failed, trying registry..."
+        fi
+    else
+        echo "Image not in local Docker daemon, building from registry..."
+    fi
+
+    if [ "${apptainer_build_ok}" = false ]; then
+        if apptainer_build_from "${apptainer_registry_ref}"; then
+            apptainer_build_ok=true
+        fi
+    fi
+
+    if [ "${apptainer_build_ok}" = false ]; then
         if [[ " {{args}} " == *" --push "* ]]; then
             echo ""
             echo "Warning: Apptainer build failed (Docker image was pushed successfully)."

@@ -1,0 +1,219 @@
+From 2bd5dc0a2451184e5c1637d538bec7042f8c1b0a Mon Sep 17 00:00:00 2001
+From: Andrew Perry <ajperry@pansapiens.com>
+Date: Sat, 2 May 2026 15:59:24 +1000
+Subject: [PATCH] Add AMD ROCm support via Dockerfile and OpenMM patches
+MIME-Version: 1.0
+Content-Type: text/plain; charset=UTF-8
+Content-Transfer-Encoding: 8bit
+
+Port dl_binder_design to AMD ROCm 6.2.4 GPU acceleration:
+- Add Dockerfile for ROCm container (ubuntu:24.04, ROCm 6.2.4, JAX 0.4.34)
+- Patch amber_minimize.py: simtk→openmm imports, CPU→OpenCL platform
+- Patch cleanup.py: simtk→openmm imports
+- Patch cleanup_test.py: simtk→openmm import
+- Use OpenCL platform for AMD GPU relaxation via OpenMM
+- Includes tensorflow-cpu, ROCm JAX wheels, pyrosetta, model weights
+---
+ Dockerfile                                    | 123 ++++++++++++++++++
+ .../alphafold/relax/amber_minimize.py         |  10 +-
+ af2_initial_guess/alphafold/relax/cleanup.py  |   4 +-
+ .../alphafold/relax/cleanup_test.py           |   2 +-
+ 4 files changed, 131 insertions(+), 8 deletions(-)
+ create mode 100644 Dockerfile
+
+diff --git a/Dockerfile b/Dockerfile
+new file mode 100644
+index 0000000..2336ad3
+--- /dev/null
++++ b/Dockerfile
+@@ -0,0 +1,123 @@
++# AMD ROCm Container for dl_binder_design
++# Based on AlphaFold v2.3.2 + ROCm 6.2.4
++# 
++# Build: docker build --network=host -t dl_binder_design-rocm:latest .
++# Run:   docker run --rm -it --device /dev/kfd --device /dev/dri \
++#                   --group-add video --network=host \
++#                   dl_binder_design-rocm:latest \
++#                     python /app/dl_binder_design/af2_initial_guess/predict.py --help
++#
++# Apptainer build: 
++#            apptainer build dl_binder_design-rocm-latest.sif \
++#	                           docker-daemon://dl_binder_design-rocm:latest
++#
++# Then run like:
++#            apptainer run --rocm \
++#           	 --env ROCBLAS_TENSILE_LIBPATH=/opt/rocm/lib/rocblas/library \
++#	             --bind /opt/rocm/lib/rocblas/library:/opt/rocm/lib/rocblas/library \
++#	             dl_binder_design-rocm-latest.sif \
++#	               python /app/dl_binder_design/af2_initial_guess/predict.py --help
++FROM ubuntu:24.04
++LABEL org.opencontainers.image.source=https://github.com/Australian-Protein-Design-Initiative/containers
++
++ENV DEBIAN_FRONTEND=noninteractive
++
++# Use bash to support string substitution.
++SHELL ["/bin/bash", "-o", "pipefail", "-c"]
++
++# Base system packages
++RUN apt-get update --quiet \
++  && apt-get install --no-install-recommends --yes --quiet \
++  build-essential \
++  ca-certificates \
++  cmake \
++  git \
++  rsync \
++  tzdata \
++  wget \
++  && rm -rf /var/lib/apt/lists/* \
++  && apt-get autoremove --yes \
++  && apt-get clean
++
++# Install ROCm 6.2.4
++RUN update-ca-certificates 2>/dev/null || true \
++  && wget --no-check-certificate -q -P /tmp \
++  https://repo.radeon.com/amdgpu-install/6.2.4/ubuntu/noble/amdgpu-install_6.2.60204-1_all.deb \
++  && apt-get update --quiet \
++  && dpkg -i /tmp/amdgpu-install_6.2.60204-1_all.deb \
++  && apt-get install -f --yes --quiet \
++  && amdgpu-install --usecase=hiplibsdk,rocm,hip --yes --no-dkms \
++  && rm /tmp/amdgpu-install_6.2.60204-1_all.deb \
++  && rm -rf /var/lib/apt/lists/* \
++  && apt-get autoremove --yes \
++  && apt-get clean
++
++ENV ROCM_PATH=/opt/rocm
++ENV PATH=$ROCM_PATH/bin:$ROCM_PATH/llvm/bin:$PATH
++ENV JAX_PLATFORMS=rocm,cpu
++
++# Install Miniforge3 (conda-forge mamba distribution)
++RUN wget -q -P /tmp \
++  https://github.com/conda-forge/miniforge/releases/latest/download/Miniforge3-$(uname)-$(uname -m).sh \
++  && bash /tmp/Miniforge3-$(uname)-$(uname -m).sh -b -p /opt/miniforge3 \
++  && rm /tmp/Miniforge3-$(uname)-$(uname -m).sh
++
++ENV PATH="/opt/miniforge3/bin:$PATH"
++ENV LD_LIBRARY_PATH="/opt/miniforge3/lib"
++
++# Install conda packages
++# Use openmm from conda-forge (stable) with OpenCL support for AMD GPU
++# openmm-hip from streamhpc requires openmm=8.0.0beta which is unavailable
++RUN mamba install -y -c https://conda.rosettacommons.org -c conda-forge \
++    pip \
++    python=3.11 \
++    biopython=1.81 \
++    ml-collections=1.0.0 \
++    pyrosetta=2024.42+release.3366cf78a3 \
++    mock=5.1.0 \
++    openmm \
++    pdbfixer \
++    && mamba clean -afy
++
++# Install pip packages + ROCm JAX 0.4.34 wheels
++# tensorflow is required by alphafold.model.model import
++RUN pip install --no-cache-dir --break-system-packages --only-binary :all: \
++        "dm-haiku==0.0.13" \
++        "dm-tree==0.1.8" \
++        "flax" \
++        "absl-py==1.0.0" \
++        "chex==0.1.86" \
++        "docker==5.0.0" \
++        "immutabledict==2.0.0" \
++        "numpy==1.24.3" \
++        "pandas==2.0.3" \
++        "setuptools<72.0.0" \
++        "scipy==1.11.1" \
++    && pip install --no-cache-dir --break-system-packages --only-binary :all: \
++        "tensorflow==2.15.*" \
++    && pip install --no-cache-dir --break-system-packages \
++        https://github.com/ROCm/jax/releases/download/rocm-jax-v0.4.34/jaxlib-0.4.34-cp311-cp311-manylinux_2_28_x86_64.whl \
++        https://github.com/ROCm/jax/releases/download/rocm-jax-v0.4.34/jax_rocm60_pjrt-0.4.34-py3-none-manylinux_2_28_x86_64.whl \
++        https://github.com/ROCm/jax/releases/download/rocm-jax-v0.4.34/jax_rocm60_plugin-0.4.34-cp311-cp311-manylinux_2_28_x86_64.whl \
++        https://github.com/ROCm/jax/archive/refs/tags/rocm-jax-v0.4.34.tar.gz
++
++# Currently needed to avoid undefined_symbol error.
++RUN ln -sf /usr/lib/x86_64-linux-gnu/libffi.so.7 /opt/miniforge3/lib/libffi.so.7
++
++WORKDIR /app
++
++# Copy local source (already patched for ROCm)
++COPY . /app/dl_binder_design
++
++RUN JAX_PLATFORMS=cpu python /app/dl_binder_design/include/importtests/af2_importtest.py
++
++# Download AlphaFold model weights
++RUN mkdir -p /models/af2_initial_guess/model_weights/params \
++    && mkdir -p /app/dl_binder_design/af2_initial_guess/model_weights \
++    && cd /models/af2_initial_guess/model_weights/params \
++    && ln -s /models/af2_initial_guess/model_weights/params /app/dl_binder_design/af2_initial_guess/model_weights/params \
++    && wget https://storage.googleapis.com/alphafold/alphafold_params_2022-12-06.tar \
++    && tar --extract --verbose --file=alphafold_params_2022-12-06.tar \
++    && rm alphafold_params_2022-12-06.tar
++
++CMD ["python", "/app/dl_binder_design/af2_initial_guess/predict.py"]
+diff --git a/af2_initial_guess/alphafold/relax/amber_minimize.py b/af2_initial_guess/alphafold/relax/amber_minimize.py
+index f8eccbb..f3239bc 100644
+--- a/af2_initial_guess/alphafold/relax/amber_minimize.py
++++ b/af2_initial_guess/alphafold/relax/amber_minimize.py
+@@ -21,10 +21,10 @@ from typing import Collection, Optional, Sequence
+ from absl import logging
+ import ml_collections
+ import numpy as np
+-from simtk import openmm
++import openmm
+ from simtk import unit
+-from simtk.openmm import app as openmm_app
+-from simtk.openmm.app.internal.pdbstructure import PdbStructure
++from openmm import app as openmm_app
++from openmm.app.internal.pdbstructure import PdbStructure
+ 
+ from alphafold.common import protein
+ from alphafold.common import residue_constants
+@@ -91,7 +91,7 @@ def _openmm_minimize(
+     _add_restraints(system, pdb, stiffness, restraint_set, exclude_residues)
+ 
+   integrator = openmm.LangevinIntegrator(0, 0.01, 0.0)
+-  platform = openmm.Platform.getPlatformByName("CPU")
++  platform = openmm.Platform.getPlatformByName("OpenCL")
+   simulation = openmm_app.Simulation(
+       pdb.topology, system, integrator, platform)
+   simulation.context.setPositions(pdb.positions)
+@@ -531,7 +531,7 @@ def get_initial_energies(pdb_strs: Sequence[str],
+   simulation = openmm_app.Simulation(openmm_pdbs[0].topology,
+                                      system,
+                                      openmm.LangevinIntegrator(0, 0.01, 0.0),
+-                                     openmm.Platform.getPlatformByName("CPU"))
++                                     openmm.Platform.getPlatformByName("OpenCL"))
+   energies = []
+   for pdb in openmm_pdbs:
+     try:
+diff --git a/af2_initial_guess/alphafold/relax/cleanup.py b/af2_initial_guess/alphafold/relax/cleanup.py
+index 4bdd449..0778d67 100644
+--- a/af2_initial_guess/alphafold/relax/cleanup.py
++++ b/af2_initial_guess/alphafold/relax/cleanup.py
+@@ -20,8 +20,8 @@ cases like removing chains of length one (see clean_structure).
+ import io
+ 
+ import pdbfixer
+-from simtk.openmm import app
+-from simtk.openmm.app import element
++from openmm import app
++from openmm.app import element
+ 
+ 
+ def fix_pdb(pdbfile, alterations_info):
+diff --git a/af2_initial_guess/alphafold/relax/cleanup_test.py b/af2_initial_guess/alphafold/relax/cleanup_test.py
+index e29026e..7dc9748 100644
+--- a/af2_initial_guess/alphafold/relax/cleanup_test.py
++++ b/af2_initial_guess/alphafold/relax/cleanup_test.py
+@@ -16,7 +16,7 @@
+ import io
+ 
+ from absl.testing import absltest
+-from simtk.openmm.app.internal import pdbstructure
++from openmm.app.internal import pdbstructure
+ 
+ from alphafold.relax import cleanup
+ 
+-- 
+2.34.1
+

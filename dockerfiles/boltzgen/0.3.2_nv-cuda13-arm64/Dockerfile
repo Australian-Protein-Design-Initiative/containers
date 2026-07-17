@@ -22,6 +22,8 @@ ARG GIT_REF=v0.3.2
 
 FROM nvidia/cuda:13.3.0-cudnn-devel-ubuntu22.04
 
+LABEL org.australian-protein-design-initiative.image.platforms="linux/arm64"
+
 LABEL org.opencontainers.image.source="https://github.com/Australian-Protein-Design-Initiative/containers" \
       org.opencontainers.image.title="BoltzGen (arm64 / Blackwell)" \
       org.opencontainers.image.description="BoltzGen protein design for arm64 / Blackwell (GB10/GB100) — CUDA 13.3, PyTorch cu130" \

@@ -1,5 +1,7 @@
-# Use a modern NVIDIA PyTorch base image (CUDA 12.x compatible with Blackwell GB200/G200)
-FROM nvcr.io/nvidia/pytorch:25.01-py3
+# NGC pytorch 26.06 is the first tag confirmed (2026-07-16) to fix an NVRTC JIT
+# compile failure ("invalid value for --gpu-architecture") for GB10 (compute
+# capability 12.1 / sm_121) hit by RosettaFold3's bf16 erfinv op on 25.01.
+FROM nvcr.io/nvidia/pytorch:26.06-py3
 
 LABEL org.opencontainers.image.source="https://github.com/Australian-Protein-Design-Initiative/containers"
 LABEL org.australian-protein-design-initiative.image.platforms="linux/arm64"
@@ -37,6 +39,12 @@ RUN pip install "packaging<=24.2" "six==1.16.0"
 
 # Install rc-foundry using standard pip
 RUN pip install "rc-foundry[all]==${GIT_REF}"
+
+# rc-foundry pulls in the cu12 cuequivariance ops packages, but this image's CUDA
+# runtime is 13.x (libnvrtc.so.12 doesn't exist) - swap to the matching cu13 builds.
+RUN CUEQ_VERSION=$(pip show cuequivariance-ops-torch-cu12 | sed -n 's/^Version: //p') && \
+    pip uninstall -y cuequivariance-ops-torch-cu12 cuequivariance-ops-cu12 && \
+    pip install "cuequivariance-ops-torch-cu13==${CUEQ_VERSION}" "cuequivariance-ops-cu13==${CUEQ_VERSION}"
 
 # --- FIX: REMOVE BRITTLE APEX PACKAGE ---
 # Purge apex completely to force rc-foundry to safely use the stable native PyTorch fallback

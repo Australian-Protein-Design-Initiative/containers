@@ -1,0 +1,39 @@
+# Modernised EnGens runtime (Python 3.11).
+# Upstream environment.yml pins Python 3.6 and is not used for this image.
+name: base
+channels:
+  - conda-forge
+  - bioconda
+dependencies:
+  - python=3.11
+  - pip
+  - git
+  - wget
+  - tar
+  - clustalo
+  - mdtraj
+  - pyemma=2.5.12
+  - openmm
+  - pdbfixer
+  - biopython>=1.84,<1.86
+  - numpy>=1.23,<2
+  - scipy
+  - scikit-learn
+  - pandas
+  - matplotlib
+  - plotly
+  - umap-learn
+  - nglview>=3.0
+  - jupyterlab
+  - notebook
+  - ipywidgets
+  - tqdm
+  - tabulate
+  - requests
+  - pyyaml
+  - h5py
+  - pip:
+      - pypatch
+      # TF 2.15 keeps keras 2.x APIs needed by patched HDE
+      - tensorflow==2.15.1
+      - keras==2.15.0

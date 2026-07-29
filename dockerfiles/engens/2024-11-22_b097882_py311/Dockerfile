@@ -118,7 +118,7 @@ PY
 
 # Install engens from the checked-out (and patched) source
 RUN --mount=type=cache,target=/home/mambauser/.cache/pip \
-    pip install ./engens_code ipymolstar
+    pip install ./engens_code ipymolstar biotite
 
 # Install patched HDE (as in upstream Dockerfile / linux_setup.sh)
 # Restrict package exports to HDE — molgen/propagator need obsolete Keras APIs

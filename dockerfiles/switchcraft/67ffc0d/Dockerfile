@@ -1,11 +1,14 @@
-# Build:
+# NOTE: Model weights (Boltz-1 checkpoint + LigandMPNN params) are included by default so
+# the image runs out of the box. This matches the convention used by the boltz containers.
+#
+# Build (with model weights, default):
 #   docker buildx build -t switchcraft --build-arg GIT_REF=67ffc0d .
-# With model weights:
-#   docker buildx build -t switchcraft --build-arg GIT_REF=67ffc0d --build-arg DOWNLOAD_WEIGHTS=true .
+# Slim build WITHOUT model weights (~3.5 GB smaller); weights must be bind-mounted at runtime:
+#   docker buildx build -t switchcraft --build-arg GIT_REF=67ffc0d --build-arg DOWNLOAD_WEIGHTS=false .
 
 ARG GIT_REPO=https://github.com/bjing2016/switchcraft.git
 ARG GIT_REF=67ffc0d
-ARG DOWNLOAD_WEIGHTS=false
+ARG DOWNLOAD_WEIGHTS=true
 
 FROM nvidia/cuda:12.6.0-runtime-ubuntu22.04
 

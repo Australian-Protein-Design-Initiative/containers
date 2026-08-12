@@ -50,6 +50,12 @@ ENV PATH="${ENV_DIR}/bin:${PATH}"
 ENV LD_LIBRARY_PATH="${ENV_DIR}/lib"
 # Prefer conda libstdc++ over the host/glibc copy (GLIBCXX mismatches with torch/CUDA)
 ENV LD_PRELOAD="${ENV_DIR}/lib/libstdc++.so.6"
+# environment.yaml only pulls in the CUDA runtime (cudatoolkit), not nvcc, so
+# deepspeed's op_builder can't find $CUDA_HOME/bin/nvcc and raises
+# MissingCUDAException on import (crashes GatedMultiheadAttention's
+# `from deepspeed.ops.deepspeed4science import ...`, which only catches
+# ImportError). Install cuda-nvcc to match and point CUDA_HOME at the env.
+ENV CUDA_HOME="${ENV_DIR}"
 
 # Pip deps from environment.yaml (timm/deepspeed/etc.) can upgrade torch past the
 # pinned CUDA 11.7 build; restore the upstream stack and keep setuptools with
@@ -58,7 +64,7 @@ RUN --mount=type=cache,target=/opt/conda/pkgs \
     --mount=type=cache,target=/root/.cache/pip \
     pip uninstall -y torch torchvision torchaudio 2>/dev/null || true \
     && mamba install -y -n IgGM --force-reinstall \
-        "pytorch=2.0.1" "pytorch-cuda=11.7" \
+        "pytorch=2.0.1" "pytorch-cuda=11.7" "cuda-nvcc=11.7" \
         -c pytorch -c nvidia \
     && pip install --force-reinstall --no-cache-dir "setuptools>=69,<81" \
     && pip install --no-deps --no-cache-dir \

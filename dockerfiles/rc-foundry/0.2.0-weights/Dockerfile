@@ -24,6 +24,19 @@ RUN mkdir -p /models/foundry \
 
 RUN pip install "rc-foundry[all]==${GIT_REF}"
 
+# GitHub's raw CDN intermittently returns 502/503. wget treats an HTTP 5xx as a
+# fatal error and exits 8 WITHOUT retrying unless retry_on_http_error is set, so a
+# single blip fails the whole build -- which is exactly what happened on the first
+# attempt at this change (502 Bad Gateway on sol_pottsmpnn_30.pt, after the file
+# before it downloaded at 106 MB/s). Configure it once here rather than repeating
+# flags on twenty wget calls; wget reads /etc/wgetrc automatically.
+RUN printf '%s\n' \
+        'tries = 5' \
+        'waitretry = 10' \
+        'timeout = 30' \
+        'retry_on_http_error = 429,500,502,503,504' \
+        >> /etc/wgetrc
+
 # Model weights are fetched in several small RUN steps rather than one large one.
 # Each RUN is a separate image layer, so this gives the registry several
 # independently-addressable blobs instead of a single multi-GB one: layers can be

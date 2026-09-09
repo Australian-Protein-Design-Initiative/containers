@@ -33,32 +33,44 @@ RUN pip install "rc-foundry[all]==${GIT_REF}"
 
 # --- WEIGHTS 1: RFdiffusion3 ---
 RUN if [ "${DOWNLOAD_WEIGHTS}" = "true" ]; then \
-        foundry install \
+        touch /tmp/.perm-stamp \
+        && foundry install \
           rfd3 \
-          --checkpoint-dir ${FOUNDRY_CHECKPOINT_DIRS}; \
+          --checkpoint-dir ${FOUNDRY_CHECKPOINT_DIRS} \
+        && find ${FOUNDRY_CHECKPOINT_DIRS} -newer /tmp/.perm-stamp -exec chmod a+rX {} + \
+        && rm -f /tmp/.perm-stamp; \
     fi
 
 # --- WEIGHTS 2: RFdiffusion3-NA (nucleic acid) ---
 RUN if [ "${DOWNLOAD_WEIGHTS}" = "true" ]; then \
-        foundry install \
+        touch /tmp/.perm-stamp \
+        && foundry install \
           rfd3na \
-          --checkpoint-dir ${FOUNDRY_CHECKPOINT_DIRS}; \
+          --checkpoint-dir ${FOUNDRY_CHECKPOINT_DIRS} \
+        && find ${FOUNDRY_CHECKPOINT_DIRS} -newer /tmp/.perm-stamp -exec chmod a+rX {} + \
+        && rm -f /tmp/.perm-stamp; \
     fi
 
 # --- WEIGHTS 3: RosettaFold3 ---
 RUN if [ "${DOWNLOAD_WEIGHTS}" = "true" ]; then \
-        foundry install \
+        touch /tmp/.perm-stamp \
+        && foundry install \
           rf3 \
-          --checkpoint-dir ${FOUNDRY_CHECKPOINT_DIRS}; \
+          --checkpoint-dir ${FOUNDRY_CHECKPOINT_DIRS} \
+        && find ${FOUNDRY_CHECKPOINT_DIRS} -newer /tmp/.perm-stamp -exec chmod a+rX {} + \
+        && rm -f /tmp/.perm-stamp; \
     fi
 
 # --- WEIGHTS 4: MPNN family via foundry ---
 RUN if [ "${DOWNLOAD_WEIGHTS}" = "true" ]; then \
-        foundry install \
+        touch /tmp/.perm-stamp \
+        && foundry install \
           proteinmpnn \
           ligandmpnn \
           solublempnn \
-          --checkpoint-dir ${FOUNDRY_CHECKPOINT_DIRS}; \
+          --checkpoint-dir ${FOUNDRY_CHECKPOINT_DIRS} \
+        && find ${FOUNDRY_CHECKPOINT_DIRS} -newer /tmp/.perm-stamp -exec chmod a+rX {} + \
+        && rm -f /tmp/.perm-stamp; \
     fi
 
 # NOTE: there is deliberately no separate wget for
@@ -73,46 +85,76 @@ RUN if [ "${DOWNLOAD_WEIGHTS}" = "true" ]; then \
 
 # --- WEIGHTS 5: ProteinMPNN and LigandMPNN ---
 RUN if [ "${DOWNLOAD_WEIGHTS}" = "true" ]; then \
-        cd /weights \
+        touch /tmp/.perm-stamp \
+        && cd /weights \
         && wget https://files.ipd.uw.edu/pub/ligandmpnn/proteinmpnn_v_48_002.pt \
         && wget https://files.ipd.uw.edu/pub/ligandmpnn/proteinmpnn_v_48_010.pt \
         && wget https://files.ipd.uw.edu/pub/ligandmpnn/proteinmpnn_v_48_030.pt \
         && wget https://files.ipd.uw.edu/pub/ligandmpnn/ligandmpnn_v_32_005_25.pt \
         && wget https://files.ipd.uw.edu/pub/ligandmpnn/ligandmpnn_v_32_020_25.pt \
-        && wget https://files.ipd.uw.edu/pub/ligandmpnn/ligandmpnn_v_32_030_25.pt; \
+        && wget https://files.ipd.uw.edu/pub/ligandmpnn/ligandmpnn_v_32_030_25.pt \
+        && find ${FOUNDRY_CHECKPOINT_DIRS} -newer /tmp/.perm-stamp -exec chmod a+rX {} + \
+        && rm -f /tmp/.perm-stamp; \
     fi
 
 # --- WEIGHTS 6: SolubleMPNN ---
 RUN if [ "${DOWNLOAD_WEIGHTS}" = "true" ]; then \
-        cd /weights \
+        touch /tmp/.perm-stamp \
+        && cd /weights \
         && wget https://files.ipd.uw.edu/pub/ligandmpnn/solublempnn_v_48_002.pt \
         && wget https://files.ipd.uw.edu/pub/ligandmpnn/solublempnn_v_48_010.pt \
-        && wget https://files.ipd.uw.edu/pub/ligandmpnn/solublempnn_v_48_030.pt; \
+        && wget https://files.ipd.uw.edu/pub/ligandmpnn/solublempnn_v_48_030.pt \
+        && find ${FOUNDRY_CHECKPOINT_DIRS} -newer /tmp/.perm-stamp -exec chmod a+rX {} + \
+        && rm -f /tmp/.perm-stamp; \
     fi
 
 # --- WEIGHTS 7: HyperMPNN ---
 RUN if [ "${DOWNLOAD_WEIGHTS}" = "true" ]; then \
-        cd /weights \
+        touch /tmp/.perm-stamp \
+        && cd /weights \
         && wget https://github.com/meilerlab/HyperMPNN/raw/refs/heads/main/retrained_models/v48_002_epoch240_hyper.pt \
         && wget https://github.com/meilerlab/HyperMPNN/raw/refs/heads/main/retrained_models/v48_010_epoch300_hyper.pt \
         && wget https://github.com/meilerlab/HyperMPNN/raw/refs/heads/main/retrained_models/v48_020_epoch300_hyper.pt \
-        && wget https://github.com/meilerlab/HyperMPNN/raw/refs/heads/main/retrained_models/v48_030_epoch300_hyper.pt; \
+        && wget https://github.com/meilerlab/HyperMPNN/raw/refs/heads/main/retrained_models/v48_030_epoch300_hyper.pt \
+        && find ${FOUNDRY_CHECKPOINT_DIRS} -newer /tmp/.perm-stamp -exec chmod a+rX {} + \
+        && rm -f /tmp/.perm-stamp; \
     fi
 
 # --- WEIGHTS 8: PottsMPNN ---
 RUN if [ "${DOWNLOAD_WEIGHTS}" = "true" ]; then \
-        cd /weights \
+        touch /tmp/.perm-stamp \
+        && cd /weights \
         && wget https://github.com/KeatingLab/PottsMPNN/raw/refs/heads/main/proteinmpnn_compatible_model_weights/pottsmpnn_20.pt \
         && wget https://github.com/KeatingLab/PottsMPNN/raw/refs/heads/main/proteinmpnn_compatible_model_weights/pottsmpnn_30.pt \
         && wget https://github.com/KeatingLab/PottsMPNN/raw/refs/heads/main/proteinmpnn_compatible_model_weights/pottsmpnn_msa_20.pt \
         && wget https://github.com/KeatingLab/PottsMPNN/raw/refs/heads/main/proteinmpnn_compatible_model_weights/sol_pottsmpnn_20.pt \
         && wget https://github.com/KeatingLab/PottsMPNN/raw/refs/heads/main/proteinmpnn_compatible_model_weights/sol_pottsmpnn_30.pt \
-        && wget https://github.com/KeatingLab/PottsMPNN/raw/refs/heads/main/proteinmpnn_compatible_model_weights/sol_pottsmpnn_msa_20.pt; \
+        && wget https://github.com/KeatingLab/PottsMPNN/raw/refs/heads/main/proteinmpnn_compatible_model_weights/sol_pottsmpnn_msa_20.pt \
+        && find ${FOUNDRY_CHECKPOINT_DIRS} -newer /tmp/.perm-stamp -exec chmod a+rX {} + \
+        && rm -f /tmp/.perm-stamp; \
     fi
 
-# --- WEIGHTS 9: permissions ---
+# --- WEIGHTS 9: verify permissions (read-only, so it costs no layer space) ---
+# This used to be `chmod -R a+rx ${FOUNDRY_CHECKPOINT_DIRS}`, which cost 8.10 GB --
+# a byte-for-byte second copy of every checkpoint above, and the only layer in the
+# image over 5 GB. overlayfs copies a file up on ANY setattr, so a recursive chmod
+# in its own RUN re-materialises every file it touches into that layer, even when
+# the mode does not change (measured: a no-op `chmod -R a+rX` still produced a full
+# layer). It also defeated the whole point of splitting the downloads above, since
+# a dropped connection then cost 8 GB rather than the layer in flight.
+#
+# Each weights step now runs `find -newer <stamp> -exec chmod a+rX` on just the
+# files it created, which is free: the copy-up lands in the layer that already
+# holds those bytes. What remains here is a check, not a fix -- `find` only reads,
+# so this layer is 0 B, and the build fails loudly if anything is unreadable.
+#
+# a+rX, not a+rx: X sets the execute bit on directories only, never on a .pt or
+# .ckpt weight file, which has no business being executable.
 RUN if [ "${DOWNLOAD_WEIGHTS}" = "true" ]; then \
-        chmod -R a+rx ${FOUNDRY_CHECKPOINT_DIRS}; \
+        bad="$(find ${FOUNDRY_CHECKPOINT_DIRS} \
+                 \( -type f ! -perm -o=r \) -o \( -type d ! -perm -o=x \) | head -n 20)"; \
+        [ -z "$bad" ] || { echo "ERROR: not world-readable under ${FOUNDRY_CHECKPOINT_DIRS}:"; \
+                           echo "$bad"; exit 1; }; \
     fi
 
 # --- WEIGHTS 10: verify the checkpoint registry resolves under /models/foundry ---

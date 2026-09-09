@@ -119,46 +119,27 @@ build container_version *args='':
         fi
     fi
 
+    # The SIF is built for local use only and is deliberately NOT pushed.
+    #
+    # We used to also `apptainer push` it to oras://${image_name}:${image_tag} --
+    # the same repo and tag the Docker image had just been pushed to. A tag
+    # resolves to exactly one manifest, so the ORAS push silently REPLACED the
+    # multi-layer Docker manifest with a single-blob SIF artifact. That made the
+    # published image one monolithic layer (e.g. rc-foundry:0.2.0-weights was a
+    # single 9.68 GB blob), which cannot be fetched in parallel and cannot be
+    # resumed if the connection drops mid-transfer.
+    #
+    # Consumers should now pull docker://${image_name}:${image_tag} and let
+    # Apptainer convert it locally.
     if [ "${apptainer_build_ok}" = false ]; then
         if [[ " {{args}} " == *" --push "* ]]; then
             echo ""
-            echo "Warning: Apptainer build failed (Docker image was pushed successfully)."
-            echo "ORAS Apptainer images cannot be published without a local SIF build."
-            echo "Or push the Dockerfile to trigger GitHub Actions, which builds and publishes the ORAS image."
+            echo "Warning: local Apptainer SIF build failed (the Docker image was pushed successfully)."
+            echo "This does not affect the published image -- only oras:// artifacts needed a local SIF,"
+            echo "and those are no longer published. Pull docker://${image_name}:${image_tag} instead."
             exit 0
         fi
         exit 1
-    fi
-
-    if [[ " {{args}} " == *" --push "* ]]; then
-        oras_ref="oras://${image_name}:${image_tag}"
-        oras_ref_datestamp="oras://${image_name}:${image_tag}-${datestamp}"
-
-        if [ -n "${GITHUB_TOKEN:-}" ]; then
-            echo "${GITHUB_TOKEN}" | apptainer registry login -u USERNAME --password-stdin oras://ghcr.io
-        fi
-
-        push_apptainer_oras() {
-            local ref="$1"
-            local output
-            local rc
-            echo "Pushing Apptainer container to ${ref}"
-            output=$(apptainer push "${apptainer_img}" "${ref}" 2>&1) && return 0
-            rc=$?
-            echo "${output}"
-            if echo "${output}" | grep -qiE 'unauthorized|authentication|not logged|401|403|denied|login required|please log'; then
-                echo ""
-                echo "Warning: Apptainer ORAS push failed due to missing or invalid authentication."
-                echo "Log in with:"
-                echo "  apptainer registry login -u <github_username> -p <pat_token> oras://ghcr.io"
-                echo ""
-                echo "Or set GITHUB_TOKEN in .env and run 'just login' first."
-            fi
-            return "${rc}"
-        }
-
-        push_apptainer_oras "${oras_ref}"
-        push_apptainer_oras "${oras_ref_datestamp}"
     fi
 
 # Build and push a specific container and version (e.g. just push germinal/5efad8f)
@@ -209,7 +190,6 @@ push-all:
 
     echo "Logging into registry..."
     echo "${GITHUB_TOKEN}" | docker login {{REGISTRY}} -u USERNAME --password-stdin
-    echo "${GITHUB_TOKEN}" | apptainer registry login -u USERNAME --password-stdin oras://ghcr.io
 
     # Find all Dockerfiles and build+push them
     while IFS= read -r dockerfile; do
@@ -239,4 +219,3 @@ login:
         exit 1
     fi
     echo "${GITHUB_TOKEN}" | docker login {{REGISTRY}} -u USERNAME --password-stdin
-    echo "${GITHUB_TOKEN}" | apptainer registry login -u USERNAME --password-stdin oras://ghcr.io

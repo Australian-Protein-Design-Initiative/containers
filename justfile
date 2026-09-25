@@ -19,6 +19,7 @@ list:
     @find dockerfiles -mindepth 2 -maxdepth 2 -type f -name Dockerfile | cut -d'/' -f2-3
 
 # Build a specific container and version (e.g. just build germinal/5efad8f)
+# Weight variants from one Dockerfile: just build name/tag --variant weights|no-weights
 build container_version *args='':
     #!/usr/bin/env bash
     export APPTAINER_IGNORE_PROOT="${APPTAINER_IGNORE_PROOT:-1}"
@@ -50,12 +51,46 @@ build container_version *args='':
         secrets_arg="--secret id=rosetta_password,env=ROSETTA_PASSWORD"
     fi
 
-    # Determine output mode and remove --push from args if present
+    # Determine output mode and remove --push / --variant from args if present
     other_args="{{args}}"
     output_args="--load" # Default action is to build and load locally.
-    
-    if [[ " {{args}} " == *" --push "* ]]; then
-        other_args=$(echo " {{args}} " | sed 's/ --push / /g' | xargs)
+    variant=""
+    weights_build_arg=""
+    image_tag="${version}"
+
+    if [[ " ${other_args} " =~ [[:space:]]--variant(=|[[:space:]]+)([^[:space:]]+) ]]; then
+        variant="${BASH_REMATCH[2]}"
+        other_args=$(echo " ${other_args} " | sed -E 's/ --variant(=| +)[^ ]+ / /g')
+    fi
+    case "${variant}" in
+        weights)
+            weights_build_arg="--build-arg DOWNLOAD_WEIGHTS=true"
+            if [[ "${image_tag}" == *_no-weights ]]; then
+                image_tag="${image_tag%_no-weights}_weights"
+            elif [[ "${image_tag}" != *_weights ]]; then
+                image_tag="${image_tag}_weights"
+            fi
+            ;;
+        no-weights)
+            weights_build_arg="--build-arg DOWNLOAD_WEIGHTS=false"
+            if [[ "${image_tag}" == *_no-weights ]]; then
+                :
+            elif [[ "${image_tag}" == *_weights ]]; then
+                image_tag="${image_tag%_weights}_no-weights"
+            else
+                image_tag="${image_tag}_no-weights"
+            fi
+            ;;
+        "")
+            ;;
+        *)
+            echo "Error: unknown --variant '${variant}' (expected weights or no-weights)"
+            exit 1
+            ;;
+    esac
+
+    if [[ " ${other_args} " == *" --push "* ]]; then
+        other_args=$(echo " ${other_args} " | sed 's/ --push / /g')
         # If pushing a multi-platform image, only push.
         if [[ "$platforms" == *,* ]]; then
             output_args="--push"
@@ -64,13 +99,15 @@ build container_version *args='':
             output_args="--output type=docker --output type=registry"
         fi
     fi
+    other_args=$(echo "${other_args}" | xargs)
 
     # Build and push the image
     if ! docker buildx build \
         --platform "${platforms}" \
-        --tag "{{REGISTRY}}/{{ORGANIZATION}}/${container}:${version}" \
-        --tag "{{REGISTRY}}/{{ORGANIZATION}}/${container}:${version}-${datestamp}" \
+        --tag "{{REGISTRY}}/{{ORGANIZATION}}/${container}:${image_tag}" \
+        --tag "{{REGISTRY}}/{{ORGANIZATION}}/${container}:${image_tag}-${datestamp}" \
         ${secrets_arg} \
+        ${weights_build_arg} \
         ${output_args} \
         ${other_args} \
         "dockerfiles/${container}/${version}"; then
@@ -89,7 +126,6 @@ build container_version *args='':
     
     # Format image name and tag for Apptainer (replace slashes and colons with dashes)
     image_name="{{REGISTRY}}/{{ORGANIZATION}}/${container}"
-    image_tag="${version}"
     apptainer_name="${image_name//\//-}-${image_tag//:/-}"
     
     apptainer_img="apptainer_containers/${apptainer_name}.img"

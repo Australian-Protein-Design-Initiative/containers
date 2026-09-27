@@ -64,11 +64,16 @@ RUN conda install --quiet --yes conda==24.11.1 pip python=3.11 \
     && conda install --quiet --yes --channel nvidia cuda=${CUDA_VERSION} \
     && conda clean --all --force-pkgs-dirs --yes
 
-RUN git clone ${GIT_REPO} /app/alphafold && \
+# Currently needed to avoid undefined_symbol error (also breaks system git/wget
+# via libp11-kit once conda is on LD_LIBRARY_PATH).
+RUN ln -sf /usr/lib/x86_64-linux-gnu/libffi.so.7 /opt/conda/lib/libffi.so.7
+
+# System git/wget must not load conda libs (LIBFFI_BASE_7.0 / libp11-kit).
+RUN LD_LIBRARY_PATH= git clone ${GIT_REPO} /app/alphafold && \
     cd /app/alphafold && \
     git checkout ${GIT_REF}
 
-RUN wget -q -P /app/alphafold/alphafold/common/ \
+RUN LD_LIBRARY_PATH= wget -q -P /app/alphafold/alphafold/common/ \
   https://git.scicore.unibas.ch/schwede/openstructure/-/raw/7102c63615b64735c4941278d92b554ec94415f8/modules/mol/alg/src/stereo_chemical_props.txt
 
 # Install pip packages.
@@ -82,8 +87,26 @@ RUN pip3 install --upgrade pip --no-cache-dir \
 # Add SETUID bit to the ldconfig binary so that non-root users can run it.
 RUN chmod u+s /sbin/ldconfig.real
 
-# Currently needed to avoid undefined_symbol error.
-RUN ln -sf /usr/lib/x86_64-linux-gnu/libffi.so.7 /opt/conda/lib/libffi.so.7
+# AlphaFold2 params (~5.3 GB). Canonical store is /models/alphafold2;
+# run_alphafold.py loads $data_dir/params, so /app/alphafold/params is a symlink
+# (pass --data_dir=/app/alphafold).
+# Skip with --build-arg DOWNLOAD_WEIGHTS=false and mount at runtime:
+#   -v /path/to/params:/models/alphafold2
+ARG DOWNLOAD_WEIGHTS=true
+RUN --mount=type=cache,target=/var/cache/alphafold-weights \
+    mkdir -p /models/alphafold2 \
+    && ln -sfn /models/alphafold2 /app/alphafold/params \
+    && if [ "${DOWNLOAD_WEIGHTS}" = "true" ]; then \
+        LD_LIBRARY_PATH= wget -nv -c -O /var/cache/alphafold-weights/alphafold_params_2022-12-06.tar \
+          "https://storage.googleapis.com/alphafold/alphafold_params_2022-12-06.tar" \
+        && tar --extract --no-same-owner \
+          --file=/var/cache/alphafold-weights/alphafold_params_2022-12-06.tar \
+          --directory=/models/alphafold2 \
+        && test -f /models/alphafold2/params_model_5_ptm.npz \
+        && chmod -R a+rX /models/alphafold2; \
+    else \
+        echo "Skipping weight download (DOWNLOAD_WEIGHTS=${DOWNLOAD_WEIGHTS}); mount params at /models/alphafold2"; \
+    fi
 
 # We need to run `ldconfig` first to ensure GPUs are visible, due to some quirk
 # with Debian. See https://github.com/NVIDIA/nvidia-docker/issues/1399 for

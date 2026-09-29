@@ -143,6 +143,11 @@ RUN --mount=type=cache,target=/root/.cache/huggingface \
     fi; \
     rm -f /tmp/download_weights.py
 
+# Offline after bake-in so runtime never phones home (and avoids read-only cache warnings).
+# Set after the download RUN so build-time snapshot_download can still reach the Hub.
+ENV HF_HUB_OFFLINE=1 \
+    TRANSFORMERS_OFFLINE=1
+
 RUN cat > /usr/local/bin/esmfold2 <<'EOF'
 #!/usr/bin/env python
 """Fold protein sequences with ESMFold2-Fast."""
@@ -279,6 +284,7 @@ from [Biohub/esm](https://github.com/Biohub/esm) 3.4.1.post1.
 - Base image: nvidia/cuda:13.0.1-cudnn-devel-ubuntu24.04
 - PyTorch 2.11 (cu130) + cuequivariance-ops-torch-cu13 + fused Triton kernels + FlashAttention 2.7.4
 - Full / MSA-capable variant: `esmfold2:3.4.1.post1_nv-cuda13_full_weights`
+- Runtime: `HF_HUB_OFFLINE=1` / `TRANSFORMERS_OFFLINE=1` (baked weights; no Hub access required)
 
 ## GPU
 

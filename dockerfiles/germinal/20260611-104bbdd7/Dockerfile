@@ -197,7 +197,7 @@ RUN python validate_install.py
 ENV PROTENIX_ROOT_DIR=/models/protenix
 ARG PROTENIX_STORE=/opt/protenix
 # protenix-v2 on the ByteDance CDN often returns 403 outside China (github.com/bytedance/Protenix/issues/296).
-ARG PROTENIX_V2_WEIGHT_URL=https://huggingface.co/TMF001/protenix-v2-weights/resolve/main/protenix-v2.pt
+ARG PROTENIX_V2_WEIGHT_URL=https://huggingface.co/nickrb/protenij/resolve/main/protenix-v2.pt
 RUN --mount=type=cache,target=/root/.cache/protenix \
   set -euxo pipefail; \
   if [ "${DOWNLOAD_WEIGHTS}" = "true" ]; then \

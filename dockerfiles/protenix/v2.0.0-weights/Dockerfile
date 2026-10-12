@@ -14,7 +14,7 @@ ARG PROTENIX_VERSION=2.0.0
 ARG DOWNLOAD_WEIGHTS=true
 # protenix-v2 on the ByteDance CDN often returns 403 outside China
 # (github.com/bytedance/Protenix/issues/296).
-ARG PROTENIX_V2_WEIGHT_URL=https://huggingface.co/TMF001/protenix-v2-weights/resolve/main/protenix-v2.pt
+ARG PROTENIX_V2_WEIGHT_URL=https://huggingface.co/nickrb/protenij/resolve/main/protenix-v2.pt
 ARG PROTENIX_STORE=/opt/protenix
 
 ARG DEBIAN_FRONTEND=noninteractive

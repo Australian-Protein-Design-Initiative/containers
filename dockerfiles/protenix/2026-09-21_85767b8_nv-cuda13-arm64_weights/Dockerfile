@@ -178,4 +178,15 @@ docker run --gpus all -it --rm -v "$(pwd)":/work -w /work \
 Run `protenix --help` / `protenix pred --help` for options. Example inputs are in `/app/examples`.
 EOF
 
+# The fused layer-norm extension is JIT-built for sm_70 to sm_100 only, so on GB10 (sm_121) it
+# fails at the first call with "no kernel image is available". Add sm_120 and sm_121 to its
+# architecture list and rebuild it (nvcc is enough, no GPU is needed at build time).
+RUN set -euxo pipefail; \
+    LN=/opt/conda/envs/protenix/lib/python3.11/site-packages/protenix/model/layer_norm; \
+    sed -i 's/^\(\s*\)("100", "100"),/&\n\1("120", "120"),\n\1("121", "121"),/' "${LN}/torch_ext_compile.py"; \
+    grep -q '("121", "121")' "${LN}/torch_ext_compile.py"; \
+    rm -f "${LN}/fast_layer_norm_cuda_v2.so"; \
+    cd /; python -c "import protenix.model.layer_norm.layer_norm"; \
+    test -f "${LN}/fast_layer_norm_cuda_v2.so"
+
 CMD ["protenix", "--help"]

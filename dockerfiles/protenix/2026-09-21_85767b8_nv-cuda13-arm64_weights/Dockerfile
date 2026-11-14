@@ -26,6 +26,7 @@ FROM nvidia/cuda:13.3.0-cudnn-devel-ubuntu24.04
 ARG GIT_REPO
 ARG GIT_REF
 ARG DOWNLOAD_WEIGHTS
+ARG GEMMI_VERSION
 # protenix-v2.pt on the ByteDance CDN returns 403 outside China
 # (github.com/bytedance/Protenix/issues/296). If the CDN download fails, this URL is tried.
 # Override with --build-arg PROTENIX_V2_WEIGHT_URL=... if the default mirror is unavailable.
@@ -34,6 +35,12 @@ ARG PROTENIX_V2_SHA256=8f931f9774a396b67033d0e58628e1834f4a1448165e04254b40a780b
 # cu130 = compiled against CUDA 13.0, forward-compatible with the 13.3 runtime above
 ARG TORCH_VERSION=2.13.0
 ARG TORCH_INDEX_URL=https://download.pytorch.org/whl/cu130
+# Upstream pins gemmi==0.6.7, which has no aarch64 wheel on PyPI or conda-forge, so pip compiles
+# it from C++ source. That is tolerable on a native arm64 host but not under the emulation CI
+# builds this image with, where it ran for over 45 minutes without finishing. 0.7.3 is the
+# earliest release with a cp311 aarch64 manylinux wheel. Nothing in Protenix imports gemmi; its
+# only consumer here is pdbeccdutils, which asks for gemmi>=0.6.6 and so accepts this.
+ARG GEMMI_VERSION=0.7.3
 
 LABEL org.opencontainers.image.source=https://github.com/Australian-Protein-Design-Initiative/containers
 LABEL org.opencontainers.image.url="${GIT_REPO}"
@@ -97,7 +104,10 @@ RUN --mount=type=cache,target=/root/.cache/pip \
     pip install --upgrade pip wheel setuptools; \
     pip install --index-url "${TORCH_INDEX_URL}" "torch==${TORCH_VERSION}" torchvision torchaudio; \
     grep -vE '^(torch|torchvision|torchaudio|triton)==' requirements.txt \
-      | sed 's/^cuequivariance-ops-torch-cu12/cuequivariance-ops-torch-cu13/' > /tmp/requirements-arm64.txt; \
+      | sed 's/^cuequivariance-ops-torch-cu12/cuequivariance-ops-torch-cu13/' \
+      | sed "s/^gemmi==.*/gemmi==${GEMMI_VERSION}/" > /tmp/requirements-arm64.txt; \
+    grep -q "^gemmi==${GEMMI_VERSION}\$" /tmp/requirements-arm64.txt; \
+    pip install --only-binary=gemmi "gemmi==${GEMMI_VERSION}"; \
     pip install -r /tmp/requirements-arm64.txt; \
     pip install --no-deps .; \
     protenix --help >/dev/null

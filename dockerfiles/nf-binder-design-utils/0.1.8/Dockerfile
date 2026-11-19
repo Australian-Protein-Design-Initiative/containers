@@ -1,0 +1,119 @@
+FROM python:3.13-slim
+LABEL org.opencontainers.image.source=https://github.com/Australian-Protein-Design-Initiative/containers
+
+# This image has various miscellaneous packages and tools used for parts of the
+# nf-binder-design workflow (https://github.com/Australian-Protein-Design-Initiative/nf-binder-design)
+# (eg, end-of-pipeline reporting, general Python scripts)
+# We also add Jupyterlab and Marimo to allow for development of interactive analysis in the
+# same environment.
+
+ARG QUARTO_VERSION=1.8.25
+ARG MDANALYSIS_VERSION=2.10.0
+# biotite must stay below 2.0: peppr calls biotite.structure.AffineTransformation,
+# which 2.0 renamed to RigidTransformation.
+ARG BIOTITE_VERSION=1.5.0
+ARG PEPPR_VERSION=0.13.1
+ARG ARPEGGIA_VERSION=0.10.2
+
+# Set environment variables
+ENV PYTHONDONTWRITEBYTECODE=1 \
+    PYTHONUNBUFFERED=1 \
+    DEBIAN_FRONTEND=noninteractive
+
+# Install system dependencies and Node.js 20.x
+RUN apt-get update && apt-get install -y --no-install-recommends \
+    build-essential \
+    git \
+    libopenmpi-dev \
+    curl \
+    gnupg \
+    ca-certificates \
+    procps \
+    pandoc \
+    gemmi \
+    openbabel \
+    && apt-get clean \
+    && rm -rf /var/lib/apt/lists/*
+
+RUN ARCH=$(dpkg --print-architecture) && \
+    curl -L -o quarto-${QUARTO_VERSION}-linux-${ARCH}.deb https://github.com/quarto-dev/quarto-cli/releases/download/v${QUARTO_VERSION}/quarto-${QUARTO_VERSION}-linux-${ARCH}.deb && \
+    dpkg -i quarto-${QUARTO_VERSION}-linux-${ARCH}.deb && \
+    rm quarto-${QUARTO_VERSION}-linux-${ARCH}.deb
+
+# Install Node.js 20.x
+RUN curl -fsSL https://deb.nodesource.com/setup_20.x | bash - && \
+    apt-get install -y nodejs && \
+    apt-get clean && \
+    rm -rf /var/lib/apt/lists/* 
+
+# Verify Node.js installation
+RUN node --version && npm --version
+
+# Install csvtk
+RUN ARCH=$(dpkg --print-architecture) && \
+    curl -L https://github.com/shenwei356/csvtk/releases/download/v0.35.0/csvtk_linux_${ARCH}.tar.gz | \
+    tar -xvz -C /usr/bin/ csvtk && \
+    chmod +x /usr/bin/csvtk
+
+# Install pdbtk
+RUN ARCH=$(dpkg --print-architecture) && \
+    curl -L https://github.com/pansapiens/pdbtk/releases/download/v0.1.1/pdbtk-linux-${ARCH} >/usr/bin/pdbtk \
+    && chmod +x /usr/bin/pdbtk
+
+# Upgrade pip and install Python packages globally
+RUN pip install --upgrade pip && \
+    pip install --no-cache-dir \
+    MDAnalysis[analysis]==${MDANALYSIS_VERSION} \
+    biotite==${BIOTITE_VERSION} \
+    gemmi \
+    pandas \
+    biopython \
+    altair \
+    seaborn\
+    matplotlib \
+    scipy \
+    scikit-learn \
+    plotly \
+    statsmodels \
+    itables
+
+# peppr: DockQ, fnat/iRMSD/LRMSD, interface lDDT and clash counts over biotite
+# AtomArrays, used by bin/rmsd4all.py --dockq. arpeggia: interatomic interaction
+# types (hydrogen bonds, hydrophobic, pi-stacking, ...) in a complex.
+RUN pip install --no-cache-dir \
+    peppr==${PEPPR_VERSION} \
+    arpeggia==${ARPEGGIA_VERSION}
+
+RUN pip install --no-cache-dir \
+    jupyterlab \
+    ipywidgets \
+    jupyter_core \
+    matplotlib-inline
+
+RUN pip install --no-cache-dir \
+    "marimo[recommended]"
+
+# Install Jupyter widget extension
+RUN jupyter labextension install @jupyter-widgets/jupyterlab-manager
+
+# Check the stack actually imports and that peppr still agrees with biotite, rather
+# than finding out in a pipeline run
+RUN python -c "import MDAnalysis, biotite, gemmi, pandas, Bio, numpy, scipy, sklearn, matplotlib, seaborn, altair, plotly, statsmodels, itables; print('python stack ok')" \
+    && python -c "import peppr, arpeggia, polars; print('peppr', peppr.__version__); assert callable(peppr.dockq)" \
+    && python -c "import biotite.structure as struc; assert hasattr(struc, 'AffineTransformation'), 'biotite is too new for peppr'"
+
+# Create a non-root user to run the application
+RUN useradd -m nfbd-user
+WORKDIR /home/nfbd-user/app
+
+# Set proper ownership for the working directory
+RUN chown -R nfbd-user:nfbd-user /home/nfbd-user/app
+
+# Switch to non-root user for running the application
+USER nfbd-user
+
+# Set default port for Jupyter
+EXPOSE 8888
+
+# Set the entrypoint to jupyter
+CMD ["jupyter", "lab", "--ip=0.0.0.0", "--no-browser"]

@@ -316,6 +316,7 @@ from alphafold3.model import model; \
 assert hasattr(model.Model.Config().global_config, "of3_weights")' \
     && apptainer run --nv --env FOO=bar --bind /tmp:/tmp /opt/af3-runtime-placeholder.sif python -c 'import os, sys; assert os.environ["FOO"] == "bar"; assert "alphafold3_venv" in sys.prefix' \
     && /hmmer/bin/jackhmmer -h > /dev/null \
+    && rm -rf "${AF3_JAX_CACHE_DIR}" \
     && if [ "${DOWNLOAD_WEIGHTS}" = "true" ]; then test -s /weights/of3/of3_ported_weights.provenance.json; fi
 
 RUN cat > /README.md <<'EOF'

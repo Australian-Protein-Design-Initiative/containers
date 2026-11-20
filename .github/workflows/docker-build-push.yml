@@ -18,6 +18,13 @@ on:
       - 'dockerfiles/*/*/Dockerfile'
       - '.github/workflows/docker-build-push.yml'
 
+# Only one workflow run at a time on the self-hosted runner: concurrent image builds (especially
+# QEMU-emulated arm64) exhaust host RAM. Runs queue rather than cancel; note GitHub keeps only the
+# newest pending run per group.
+concurrency:
+  group: docker-build-self-hosted
+  cancel-in-progress: false
+
 env:
   REGISTRY: ghcr.io
   ORGANIZATION: australian-protein-design-initiative/containers
